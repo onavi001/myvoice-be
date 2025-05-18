@@ -1,11 +1,11 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { dbConnect } from "../../../lib/mongodb";
-import Routine from "../../../models/Routine";
-import Day, { IDay } from "../../../models/Day";
-import Exercise, { IExercise } from "../../../models/Exercise";
-import Video, { IVideo } from "../../../models/Video"; // Unifico como Video
+import { dbConnect } from "../../../../lib/mongodb";
+import Routine from "../../../../models/Routine";
+import Day, { IDay } from "../../../../models/Day";
+import Exercise, { IExercise } from "../../../../models/Exercise";
+import Video, { IVideo } from "../../../../models/Video";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   await dbConnect();

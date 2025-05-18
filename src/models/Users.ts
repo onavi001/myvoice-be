@@ -7,9 +7,9 @@ interface IUser extends Document {
   role: "user" | "coach";
   goals?: string[];
   notes?: string;
-  coachId?: Types.ObjectId; // Para usuarios: ID del coach asignado
-  specialties?: string[]; // Para coaches: ej. ["Fuerza", "Cardio"]
-  bio?: string; // Para coaches: descripción
+  coachId?: Types.ObjectId;
+  specialties?: string;
+  bio?: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
   createdAt: Date;

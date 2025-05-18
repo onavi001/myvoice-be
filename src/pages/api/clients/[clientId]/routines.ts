@@ -92,7 +92,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case "POST":
       try {
         const { routineId } = req.body;
-        console.log("routineId", routineId);
         if (!routineId) {
           return res.status(400).json({ message: "El ID de la rutina es requerido" });
         }
@@ -122,17 +121,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
         })
         .lean();
-        console.log(routine);
         if (!routine) {
           return res.status(404).json({ message: "Rutina no encontrada" });
         }
-        //assign routine to client
-        //const { name, days } = routine;
-        // Crear videos, ejercicios y días
         const videoIds = [];
         const exerciseIds = [];
         const dayIds = [];
-        console.log(routine);
         for (const dayData of routine.days as IDay[]) {
           const exercises = dayData.exercises || [];
           const exerciseIdsForDay = [];
@@ -158,8 +152,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await day.save();
           dayIds.push(day._id);
         }
-        console.log(routine);
-        const newRoutine = new Routine({ userId:clientId, couchId:userId, name:routine.name, days: dayIds });
+        const newRoutine = new Routine({ 
+            userId:clientId,
+            couchId:userId, name:`${routine.name} ${client.username}`,
+            days: dayIds
+          });
         await newRoutine.save();
 
         return res.status(201).json({ message: "Rutina asignada" });
@@ -185,9 +182,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(404).json({ message: "Cliente no encontrado o no asignado" });
           }
           if (goals !== undefined) {
-            if (!Array.isArray(goals)) {
-              return res.status(400).json({ message: "Los objetivos deben ser un array" });
-            }
             client.goals = goals;
           }
           if (notes !== undefined) {

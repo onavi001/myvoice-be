@@ -1,9 +1,10 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import {dbConnect} from "../../../lib/mongodb";
-import Routine from "../../../models/Routine";
-import Day, { IDay } from "../../../models/Day";
-import Exercise, { IExercise } from "../../../models/Exercise";
-import Video, { IVideo } from "../../../models/Video";
+import {dbConnect} from "@/lib/mongodb";
+import Routine from "@/models/Routine";
+import Day, { IDay } from "@/models/Day";
+import Exercise, { IExercise } from "@/models/Exercise";
+import Video, { IVideo } from "@/models/Video";
+import User from "@/models/Users";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -23,11 +24,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   switch (req.method) {
     case "GET":
       try {
-        const routines = await Routine.find({
-          userId,
-          name: { $ne: null }, // Filtra rutinas con nombre no vacío ni null
-          "days.0": { $exists: true }, // Asegura que haya al menos un día
-        })
+        const user = await User.findById(userId).lean();
+        const query: Record<string, unknown> = {
+          name: { $ne: null },
+          "days.0": { $exists: true }
+        };
+        if (user && user.role === "coach") {
+          query.$or = [
+            { userId:userId },
+            { couchId:userId }
+          ];
+        } else {
+          query.userId = userId;
+        }
+        const routines = await Routine.find(query)
         .populate({
           path: "days",
           populate: {
