@@ -1,3 +1,5 @@
+//client_id: "2da5252b72964073af40409d4b230b87",
+//client_secret: "057abfd4b6624342bb8b93222a2c08cf",
 import type { NextApiRequest, NextApiResponse } from "next";
 
 interface SpotifyTokenResponse {
@@ -11,10 +13,18 @@ interface ErrorResponse {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<SpotifyTokenResponse | ErrorResponse>) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Método no permitido" });
+  }
+
   const { code, redirect_uri } = req.query;
 
   if (!code || !redirect_uri) {
     return res.status(400).json({ error: "Faltan parámetros code o redirect_uri" });
+  }
+
+  if (typeof code !== "string" || typeof redirect_uri !== "string") {
+    return res.status(400).json({ error: "Parámetros code o redirect_uri inválidos" });
   }
 
   try {
@@ -24,16 +34,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code: code as string,
-        redirect_uri: redirect_uri as string,
-        client_id: process.env.SPOTIFY_CLIENT_ID!,
-        client_secret: process.env.SPOTIFY_CLIENT_SECRET!,
+        grant_type: "client_credentials",
+        code,
+        redirect_uri,
+        client_id: "2da5252b72964073af40409d4b230b87",
+        client_secret: "057abfd4b6624342bb8b93222a2c08cf",
       }).toString(),
     });
 
     if (!response.ok) {
-      throw new Error(`Error de Spotify: ${response.statusText}`);
+      const errorData = await response.json();
+      return res.status(response.status).json({ error: errorData.error || response.statusText });
     }
 
     const data = (await response.json()) as SpotifyTokenResponse;

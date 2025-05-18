@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const user = await User.findById(decoded.userId).lean();
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ user: { _id: user._id, username: user.username, email: user.email } });
+    res.status(200).json({ user });
   } catch {
     res.status(401).json({ message: "Invalid or expired token" });
   }
