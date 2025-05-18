@@ -3,9 +3,9 @@ import {dbConnect} from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import User from "@/models/Users";
 import Routine from "@/models/Routine";
-import { IDay } from "@/models/Day";
-import { IExercise } from "@/models/Exercise";
-import { IVideo } from "@/models/Video";
+import Day, { IDay } from "@/models/Day";
+import Exercise, { IExercise } from "@/models/Exercise";
+import Video, { IVideo } from "@/models/Video";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   await dbConnect();
@@ -30,9 +30,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (user.role !== "coach") {
           return res.status(403).json({ message: "Solo los coaches pueden ver rutinas de clientes" });
         }
-        ///coachId: user._id, -> implementacion a futuro
         const routines = await Routine.find({
-          clientId,
+          userId: clientId, 
+          couchId: user._id,
           name: { $ne: null }, // Filtra rutinas con nombre no vacío ni null
           "days.0": { $exists: true }, // Asegura que haya al menos un día
         })
@@ -85,19 +85,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           createdAt: r.createdAt.toISOString(),
           updatedAt: r.updatedAt.toISOString(),
         }));
-        const client = await User.findOne({
-          _id: clientId,
-          coachId: user._id,
-          role: "user",
-        }).select("username email goals notes");
-        res.status(200).json({client,serializedRoutines});
-        return res.status(200).json(client);
+        return res.status(200).json(serializedRoutines);
       } catch (error) {
         return res.status(500).json({ message: "Error al obtener rutinas de cliente", error });
       }
     case "POST":
       try {
         const { routineId } = req.body;
+        console.log("routineId", routineId);
         if (!routineId) {
           return res.status(400).json({ message: "El ID de la rutina es requerido" });
         }
@@ -116,12 +111,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!client) {
           return res.status(404).json({ message: "Cliente no encontrado o no asignado" });
         }
-        // TODO: Implementar lógica para asignar rutina (requiere modelo Routine)
-        // Ejemplo: const routine = await RoutineModel.findById(routineId);
-        // if (!routine) return res.status(404).json({ message: "Rutina no encontrada" });
-        // routine.clientId = clientId;
-        // await routine.save();
-        res.json({ message: "Rutina asignada (placeholder)" }); // Placeholder
+        const routine = await Routine.findById({
+          _id:routineId
+        })
+        .populate({
+          path: "days",
+          populate: {
+            path: "exercises",
+            populate: { path: "videos" },
+          },
+        })
+        .lean();
+        console.log(routine);
+        if (!routine) {
+          return res.status(404).json({ message: "Rutina no encontrada" });
+        }
+        //assign routine to client
+        //const { name, days } = routine;
+        // Crear videos, ejercicios y días
+        const videoIds = [];
+        const exerciseIds = [];
+        const dayIds = [];
+        console.log(routine);
+        for (const dayData of routine.days as IDay[]) {
+          const exercises = dayData.exercises || [];
+          const exerciseIdsForDay = [];
+
+          for (const exData of exercises as IExercise[]) {
+            const videos = exData.videos || [];
+            const videoIdsForExercise = [];
+
+            for (const videoData of videos) {
+              const video = new Video({...videoData,_id: undefined});
+              await video.save();
+              videoIds.push(video._id);
+              videoIdsForExercise.push(video._id);
+            }
+
+            const exercise = new Exercise({ ...exData, videos: videoIdsForExercise, _id: undefined });
+            await exercise.save();
+            exerciseIds.push(exercise._id);
+            exerciseIdsForDay.push(exercise._id);
+          }
+
+          const day = new Day({ ...dayData, exercises: exerciseIdsForDay, _id: undefined });
+          await day.save();
+          dayIds.push(day._id);
+        }
+        console.log(routine);
+        const newRoutine = new Routine({ userId:clientId, couchId:userId, name:routine.name, days: dayIds });
+        await newRoutine.save();
+
+        return res.status(201).json({ message: "Rutina asignada" });
       } catch (error) {
         return res.status(500).json({ message: "Error al asignar rutina a cliente", error });
       }

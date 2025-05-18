@@ -6,6 +6,7 @@ import CoachRequest from "@/models/CoachRequest";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   await dbConnect();
+  console.log("Request body:", req.body);
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "No autenticado" });
   
@@ -17,6 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   
   const userId = decoded.userId;
+  console.log(req.body)
   switch (req.method) {
     case "POST":
       try {
@@ -44,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         const coachRequest = new CoachRequest({
           userId,
-          id,
+          coachId:id,
           status: "pending",
         });
         await coachRequest.save();

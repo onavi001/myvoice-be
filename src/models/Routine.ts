@@ -4,6 +4,7 @@ import { IDay } from "./Day";
 export interface IRoutine {
   userId: Types.ObjectId;
   name: string;
+  couchId?: Types.ObjectId;
   days: Types.ObjectId[] | IDay[];
   createdAt: Date;
   updatedAt: Date;
@@ -13,6 +14,7 @@ export interface IRoutine {
 export interface RoutineData {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
+  couchId?: Types.ObjectId;
   name: string;
   days: {
     _id: Types.ObjectId;
@@ -43,6 +45,7 @@ export interface RoutineData {
 
 const RoutineSchema: Schema = new Schema<IRoutine>({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  couchId: { type: Schema.Types.ObjectId, ref: "User"},
   name: { type: String, required: true },
   days: [{ type: Schema.Types.ObjectId, ref: "Day" }],
   createdAt: { type: Date, default: Date.now },

@@ -22,6 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         const coach = await User.findById(userId).lean();
         const { id } = req.body;
+        console.log(req.body)
         if (!coach) {
           return res.status(404).json({ message: "Usuario no encontrado" });
         }
