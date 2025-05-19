@@ -163,36 +163,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (error) {
         return res.status(500).json({ message: "Error al asignar rutina a cliente", error });
       }
-    case "PUT":
-        try {
-          const { goals, notes } = req.body;
-          const user = await User.findById(userId).lean();
-          if (!user) {
-            return res.status(404).json({ message: "Usuario no encontrado" });
-          }
-          if (user.role !== "coach") {
-            return res.status(403).json({ message: "Solo los coaches pueden ver rutinas de clientes" });
-          }
-          const client = await User.findOne({
-            _id: clientId,
-            coachId: user._id,
-            role: "user",
-          });
-          if (!client) {
-            return res.status(404).json({ message: "Cliente no encontrado o no asignado" });
-          }
-          if (goals !== undefined) {
-            client.goals = goals;
-          }
-          if (notes !== undefined) {
-            client.notes = notes;
-          }
-      
-          await client.save();
-          res.status(201).json(client);
-        } catch (error) {
-          return res.status(500).json({ message: "Error al actualizar cliente", error });
-        }
     default:
       return res.status(405).json({ message: "Método no permitido" });
   }
