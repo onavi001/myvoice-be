@@ -27,6 +27,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   switch (req.method) {
+    case "GET":
+      try {
+        const populatedRoutine = await Routine.findById({_id:routineId})
+          .populate({ path: "days", populate: { path: "exercises", populate: "videos" } });
+        if (!populatedRoutine) return res.status(404).json({ message: "Rutina no encontrada" });
+        console.log("Rutina obtenida:", populatedRoutine);
+        res.status(200).json(populatedRoutine);
+      } catch (error) {
+        console.error("Error al obtener rutina:", error);
+        res.status(500).json({ message: "Error al obtener rutina", error: (error as Error).message });
+      }
+      break;
     case "PUT":
       try {
         const { routineData } = req.body;
