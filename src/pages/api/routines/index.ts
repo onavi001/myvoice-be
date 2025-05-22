@@ -57,6 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           _id: r._id.toString(),
           userId: r.userId.toString(),
           name: r.name,
+          couchId: r.couchId?.toString(),
           days: r.days.map((d: Partial<IDay>) => ({
             _id: d._id?.toString(),
             dayName: d.dayName,
