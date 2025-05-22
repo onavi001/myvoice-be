@@ -54,6 +54,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const userId = decoded.userId;
   switch (req.method) {
+    case "GET":
+      try {
+        const user = await User.findById(userId).select("-password");
+        if (!user) {
+          return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+        if (user.role !== "admin") {
+          return res.status(403).json({ message: "Acceso denegado" });
+        }
+        const users = await User.find().select("-password");
+        if (!users) {
+          return res.status(404).json({ message: "No se encontraron usuarios" });
+        }
+        const serializedUsers = users.map((user) => ({
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          bio: user.bio,
+          goals: user.goals,
+          notes: user.notes,
+          role: user.role,
+        }));
+        return res.status(200).json(serializedUsers);
+      } catch (error) {
+        return res.status(500).json({ message: "Error al obtener el perfil", error });
+      }
     case "PUT":
       try {
         const body = req.body;

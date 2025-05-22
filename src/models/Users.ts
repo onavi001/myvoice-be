@@ -4,7 +4,7 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  role: "user" | "coach";
+  role: "user" | "coach" | "admin";
   goals?: string[];
   notes?: string;
   coachId?: Types.ObjectId;
@@ -19,8 +19,8 @@ const UserSchema: Schema = new Schema<IUser>({
   username: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ["user", "coach"], default: "user", required: true },
-  goals: [{ type: String }],
+  role: { type: String, enum: ["user", "coach", "admin"], default: "user", required: true },
+  goals: { type: String },
   notes: { type: String },
   coachId: { type: Schema.Types.ObjectId, ref: "User" },
   specialties: [{ type: String }],
