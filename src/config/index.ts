@@ -1,8 +1,9 @@
-// Centralized configuration for environment variables and constants
+import dotenv from 'dotenv';
+dotenv.config();
 
-export const MONGODB_URI: string = process.env.MONGO_URI || "mongodb://localhost:27017/myvoice";
-export const EMAIL_USER: string = process.env.EMAIL_USER || "";
-export const EMAIL_PASS: string = process.env.EMAIL_PASS || "";
-export const JWT_SECRET: string = process.env.JWT_SECRET || "my-super-secret-key";
-
-// Add more configuration constants as needed
+export const MONGO_URI = process.env.MONGO_URI || '';
+export const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+export const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-key';
+export const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+export const EMAIL_USER = process.env.EMAIL_USER || '';
+export const EMAIL_PASS = process.env.EMAIL_PASS || '';

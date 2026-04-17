@@ -1,6 +1,6 @@
 import { Schema, model, Document, Model, Types } from "mongoose";
 
-interface ICoachRequest extends Document {
+export interface ICoachRequest extends Document {
   userId: Types.ObjectId;
   coachId: Types.ObjectId;
   status: "pending" | "accepted" | "rejected";
@@ -14,12 +14,4 @@ const CoachRequestSchema: Schema = new Schema<ICoachRequest>({
   createdAt: { type: Date, default: Date.now },
 });
 
-let CoachRequestModel: Model<ICoachRequest>;
-
-try {
-  CoachRequestModel = model<ICoachRequest>("CoachRequest", CoachRequestSchema);
-} catch {
-  CoachRequestModel = model<ICoachRequest>("CoachRequest", CoachRequestSchema, undefined, { overwriteModels: true });
-}
-
-export default CoachRequestModel;
+export default model<ICoachRequest>("CoachRequest", CoachRequestSchema);

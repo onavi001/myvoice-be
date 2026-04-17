@@ -18,25 +18,6 @@ export interface IProgress {
   completed: boolean;
 }
 
-export interface ProgressData {
-  _id: Types.ObjectId;
-  userId: string;
-  routineId: string;
-  routineName: string;
-  dayId: string;
-  dayName: string;
-  exerciseId: string;
-  exerciseName: string;
-  sets: number;
-  reps: number;
-  repsUnit: "count" | "seconds";
-  weightUnit: "kg" | "lb";
-  weight: number;
-  notes: string;
-  date: string;
-  completed: boolean;
-}
-
 const ProgressSchema: Schema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   routineId: { type: Schema.Types.ObjectId, ref: "Routine", required: true },
@@ -55,12 +36,4 @@ const ProgressSchema: Schema = new Schema({
   completed: { type: Boolean, default: false },
 });
 
-let ProgressModel: Model<IProgress>;
-
-try {
-  ProgressModel = model<IProgress>("Progress", ProgressSchema);
-} catch {
-  ProgressModel = model<IProgress>("Progress", ProgressSchema, undefined, { overwriteModels: true });
-}
-
-export default ProgressModel;
+export default model<IProgress>("Progress", ProgressSchema);

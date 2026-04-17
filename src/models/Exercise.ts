@@ -34,12 +34,4 @@ const ExerciseSchema: Schema = new Schema<IExercise>({
   circuitId: String,
 });
 
-let ExerciseModel: Model<IExercise>;
-
-try {
-  ExerciseModel = model<IExercise>("Exercise", ExerciseSchema);
-} catch {
-  ExerciseModel = model<IExercise>("Exercise", ExerciseSchema, undefined, { overwriteModels: true });
-}
-
-export default ExerciseModel;
+export default model<IExercise>("Exercise", ExerciseSchema);

@@ -11,12 +11,4 @@ const VideoSchema: Schema = new Schema<IVideo>({
   isCurrent: { type: Boolean, default: false },
 });
 
-let VideoModel: Model<IVideo>;
-
-try {
-  VideoModel = model<IVideo>("Video", VideoSchema);
-} catch {
-  VideoModel = model<IVideo>("Video", VideoSchema, undefined, { overwriteModels: true });
-}
-
-export default VideoModel;
+export default model<IVideo>("Video", VideoSchema);

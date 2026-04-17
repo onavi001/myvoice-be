@@ -18,12 +18,4 @@ const DaySchema: Schema = new Schema<IDay>({
   exercises: [{ type: Schema.Types.ObjectId, ref: "Exercise" }],
 });
 
-let DayModel: Model<IDay>;
-
-try {
-  DayModel = model<IDay>("Day", DaySchema);
-} catch {
-  DayModel = model<IDay>("Day", DaySchema, undefined, { overwriteModels: true });
-}
-
-export default DayModel;
+export default model<IDay>("Day", DaySchema);
