@@ -1,5 +1,8 @@
-import mongoose from "mongoose";
 
+import mongoose from "mongoose";
+import { MONGODB_URI } from "../config";
+
+// Global cache to prevent multiple connections in dev
 declare global {
   // eslint-disable-next-line no-var
   var mongoose: {
@@ -7,7 +10,6 @@ declare global {
     promise: Promise<mongoose.Mongoose> | null;
   };
 }
-const MONGODB_URI: string = process.env.MONGO_URI || "mongodb://localhost:27017/myvoice";
 
 if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable");
