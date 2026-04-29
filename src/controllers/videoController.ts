@@ -18,14 +18,27 @@ export const searchVideos = async (req: Request, res: Response) => {
   const userId = getUserIdFromRequest(req);
   if (!userId) return res.status(401).json({ message: 'No autenticado' });
   try {
-    const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
+    const YOUTUBE_API_KEY =
+      process.env.YOUTUBE_API_KEY ||
+      process.env.NEXT_PUBLIC_YOUTUBE_API_KEY ||
+      '';
     const { exerciseName } = req.query;
     if (!exerciseName) return res.status(400).json({ error: 'Faltan parámetros requeridos' });
+    if (!YOUTUBE_API_KEY) {
+      return res.status(500).json({ error: 'Falta configurar YOUTUBE_API_KEY en el backend' });
+    }
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-        `${exerciseName} técnica de ejercicio`
+        `${exerciseName} tecnica de ejercicio en español`
       )}&type=video&maxResults=5&key=${YOUTUBE_API_KEY}`
     );
+    if (!response.ok) {
+      const upstreamError = await response.text();
+      return res.status(502).json({
+        error: 'Error al consultar YouTube',
+        details: upstreamError,
+      });
+    }
     const data = await response.json();
     if (data.items && data.items.length > 0) {
       const videoUrls = data.items.map((item: { id: { videoId: string } }) => `https://www.youtube.com/embed/${item.id.videoId}`);
