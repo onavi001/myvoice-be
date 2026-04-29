@@ -9,8 +9,10 @@ import {
   resetRoutineProgress,
   generateRoutine,
 } from '../controllers/routineController';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
+router.use(requireAuth);
 
 /**
  * @openapi

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { searchVideos, createVideo, updateVideo, deleteVideo } from '../controllers/videoController';
+import { requireAuth } from '../middleware/auth';
 
 /**
  * @openapi
@@ -62,6 +63,7 @@ import { searchVideos, createVideo, updateVideo, deleteVideo } from '../controll
  */
 
 const router = Router();
+router.use(requireAuth);
 
 router.get('/', searchVideos);
 router.post('/', createVideo);

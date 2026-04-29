@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { updateDay, deleteDay, addExerciseToDay, resetDayProgress } from '../controllers/dayController';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
+router.use(requireAuth);
 
 /**
  * @openapi

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { listProgress, createProgress, updateProgress, deleteProgress, clearProgress } from '../controllers/progressController';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
+router.use(requireAuth);
 
 /**
  * @openapi

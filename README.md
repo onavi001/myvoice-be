@@ -63,13 +63,23 @@ npm run dev
 ```text
 src/
   config/          # Lectura de variables de entorno y constantes globales
-  controllers/     # Lógica por recurso (rutinas, progreso, auth, etc.)
+  controllers/     # Capa HTTP delgada (req/res, status codes, envelope)
   middleware/      # Error handling, auth y middlewares compartidos
   models/          # Esquemas y modelos Mongoose
   routes/          # Definición de endpoints y documentación Swagger por ruta
+  services/        # Lógica de negocio y orquestación por dominio
+  validators/      # Esquemas Zod reutilizables por módulo
   utils/           # Conexión DB, correo y utilidades de infraestructura
   index.ts         # Bootstrap de Express, rutas y Swagger
 ```
+
+## Patrón de arquitectura (Fase 2)
+
+- `routes` define endpoints y middleware por recurso.
+- `controllers` valida contexto HTTP y delega al dominio.
+- `services` encapsula reglas de negocio, ownership y flujos multi-modelo.
+- `validators` centraliza contratos Zod para evitar duplicación entre controladores.
+- `utils` contiene infraestructura transversal (DB, correo, respuestas, etc.).
 
 ## Módulos principales de API
 

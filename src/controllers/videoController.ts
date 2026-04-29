@@ -1,95 +1,64 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import Video from '../models/Video';
-
-function getUserIdFromRequest(req: Request): string | null {
-  const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
-  if (!token) return null;
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'my-super-secret-key') as { userId: string };
-    return decoded.userId;
-  } catch {
-    return null;
-  }
-}
+import { sendError, sendSuccess } from '../utils/apiResponse';
+import {
+  createVideoService,
+  deleteVideoService,
+  searchVideosService,
+  updateVideoService,
+} from '../services/videoService';
 
 // GET /api/videos?exerciseName=... - Buscar videos de YouTube
 export const searchVideos = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   try {
-    const YOUTUBE_API_KEY =
-      process.env.YOUTUBE_API_KEY ||
-      process.env.NEXT_PUBLIC_YOUTUBE_API_KEY ||
-      '';
     const { exerciseName } = req.query;
-    if (!exerciseName) return res.status(400).json({ error: 'Faltan parámetros requeridos' });
-    if (!YOUTUBE_API_KEY) {
-      return res.status(500).json({ error: 'Falta configurar YOUTUBE_API_KEY en el backend' });
-    }
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-        `${exerciseName} tecnica de ejercicio en español`
-      )}&type=video&maxResults=5&key=${YOUTUBE_API_KEY}`
-    );
-    if (!response.ok) {
-      const upstreamError = await response.text();
-      return res.status(502).json({
-        error: 'Error al consultar YouTube',
-        details: upstreamError,
-      });
-    }
-    const data = await response.json();
-    if (data.items && data.items.length > 0) {
-      const videoUrls = data.items.map((item: { id: { videoId: string } }) => `https://www.youtube.com/embed/${item.id.videoId}`);
-      return res.status(200).json(videoUrls.map((url: string, idx: number) => ({ url, isCurrent: idx === 0 })));
-    }
-    res.status(200).json([]);
+    if (!exerciseName) return sendError(res, 400, 'Faltan parámetros requeridos');
+    const result = await searchVideosService(String(exerciseName));
+    if (!result.ok) return sendError(res, result.status, result.message, result.details);
+    return sendSuccess(res, 200, 'Videos obtenidos correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ error: 'Error interno del servidor' });
+    return sendError(res, 500, 'Error interno del servidor');
   }
 };
 
 // POST /api/videos - Crear video
 export const createVideo = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   try {
-    const { url, isCurrent } = req.body;
-    if (!url) return res.status(400).json({ message: 'URL es requerida' });
-    const video = new Video({ url, isCurrent });
-    await video.save();
-    res.status(201).json(video);
+    const result = await createVideoService(req.body);
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 201, 'Video creado correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al crear video', error });
+    return sendError(res, 500, 'Error al crear video');
   }
 };
 
 // PUT /api/videos/:id - Actualizar video
 export const updateVideo = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   const { id } = req.params;
   try {
-    const { url, isCurrent } = req.body;
-    const video = await Video.findByIdAndUpdate(id, { url, isCurrent }, { new: true, runValidators: true });
-    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
-    res.status(200).json(video);
+    const result = await updateVideoService(id, req.body);
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 200, 'Video actualizado correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar video' });
+    return sendError(res, 500, 'Error al actualizar video');
   }
 };
 
 // DELETE /api/videos/:id - Eliminar video
 export const deleteVideo = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   const { id } = req.params;
   try {
-    const video = await Video.findByIdAndDelete(id);
-    if (!video) return res.status(404).json({ message: 'Video no encontrado' });
-    res.status(204).end();
+    const result = await deleteVideoService(id);
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 200, 'Video eliminado correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al eliminar video' });
+    return sendError(res, 500, 'Error al eliminar video');
   }
 };

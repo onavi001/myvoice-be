@@ -8,8 +8,10 @@ import {
   approveCoachRequest,
   rejectCoachRequest,
 } from '../controllers/adminController';
+import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
+router.use(requireAuth, requireRole('admin'));
 
 /**
  * @openapi

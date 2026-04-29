@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { updateExercise, deleteExercise, generateExercises } from '../controllers/exerciseController';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
+router.use(requireAuth);
 
 /**
  * @openapi

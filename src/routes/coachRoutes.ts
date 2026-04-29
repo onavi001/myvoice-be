@@ -11,6 +11,7 @@ import {
   listClientRoutines,
   assignClientRoutine,
 } from '../controllers/coachController';
+import { requireAuth } from '../middleware/auth';
 
 /**
  * @openapi
@@ -71,6 +72,7 @@ import {
 const router = Router();
 
 router.get('/', listCoaches);
+router.use(requireAuth);
 router.post('/requests', requestCoach);
 router.get('/requests', getCoachRequests);
 router.post('/accept', acceptCoachRequest);

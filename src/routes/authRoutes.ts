@@ -17,8 +17,16 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Login exitoso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthLoginResponse'
  *       401:
  *         description: Credenciales inválidas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Error interno
  *         content:
@@ -34,10 +42,22 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Token válido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthVerifyResponse'
  *       401:
  *         description: Token inválido o faltante
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Usuario no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  * /api/auth/forgot-password:
  *   post:
  *     tags: [Auth]
@@ -51,8 +71,16 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Mensaje genérico enviado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MessageOnlySuccessResponse'
  *       400:
  *         description: Correo requerido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  * /api/auth/reset-password:
  *   post:
  *     tags: [Auth]
@@ -66,8 +94,16 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Contraseña actualizada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MessageOnlySuccessResponse'
  *       400:
  *         description: Token inválido o datos faltantes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/login', login);
 router.get('/verify', verifyToken);

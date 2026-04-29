@@ -60,6 +60,53 @@ const swaggerOptions = {
           type: 'object',
           properties: {
             message: { type: 'string', example: 'Error al procesar la solicitud' },
+            data: { type: 'null', example: null },
+            error: { oneOf: [{ type: 'string' }, { type: 'array' }, { type: 'object' }, { type: 'null' }], example: null },
+          },
+        },
+        UserSummary: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '67f0a1b2c3d4e5f678901234' },
+            username: { type: 'string', example: 'navi' },
+            email: { type: 'string', format: 'email', example: 'navi@example.com' },
+            role: { type: 'string', example: 'user' },
+          },
+        },
+        AuthLoginData: {
+          type: 'object',
+          properties: {
+            token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+            user: { $ref: '#/components/schemas/UserSummary' },
+          },
+        },
+        AuthLoginResponse: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Login exitoso' },
+            data: { $ref: '#/components/schemas/AuthLoginData' },
+            error: { type: 'null', example: null },
+          },
+        },
+        AuthVerifyResponse: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Token válido' },
+            data: {
+              type: 'object',
+              properties: {
+                user: { $ref: '#/components/schemas/UserSummary' },
+              },
+            },
+            error: { type: 'null', example: null },
+          },
+        },
+        MessageOnlySuccessResponse: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Operación exitosa' },
+            data: { nullable: true, example: null },
+            error: { type: 'null', example: null },
           },
         },
         AuthLoginRequest: {

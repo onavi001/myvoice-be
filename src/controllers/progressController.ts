@@ -1,96 +1,90 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import Progress from '../models/Progress';
-import mongoose from 'mongoose';
-
-function getUserIdFromRequest(req: Request): string | null {
-  const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
-  if (!token) return null;
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'my-super-secret-key') as { userId: string };
-    return decoded.userId;
-  } catch {
-    return null;
-  }
-}
+import { sendError, sendSuccess } from '../utils/apiResponse';
+import { progressSchema, progressUpdateSchema } from '../validators/progressValidators';
+import {
+  clearProgressService,
+  createProgressService,
+  deleteProgressService,
+  listProgressService,
+  updateProgressService,
+} from '../services/progressService';
 
 // GET /api/progress - Listar progreso del usuario
 export const listProgress = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   try {
     const { routineId, startDate, endDate } = req.query;
-    const query: Record<string, unknown> = { userId: new mongoose.Types.ObjectId(userId) };
-    if (routineId) query.routineId = new mongoose.Types.ObjectId(routineId as string);
-    if (startDate && endDate) {
-      query.date = {
-        $gte: new Date(startDate as string),
-        $lte: new Date(endDate as string),
-      };
-    }
-    const progress = await Progress.find(query).lean();
-    res.status(200).json(progress);
+    const result = await listProgressService(userId, {
+      routineId: routineId ? String(routineId) : undefined,
+      startDate: startDate ? String(startDate) : undefined,
+      endDate: endDate ? String(endDate) : undefined,
+    });
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 200, 'Progreso obtenido correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener progreso', error });
+    return sendError(res, 500, 'Error al obtener progreso');
   }
 };
 
 // POST /api/progress - Crear progreso
 export const createProgress = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   try {
-    const payload = {
-      ...req.body,
-      userId: new mongoose.Types.ObjectId(userId),
-    };
-    const createdProgress = await Progress.create(payload);
-    res.status(201).json(createdProgress);
+    const parsed = progressSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, 'Datos de progreso inválidos', parsed.error.issues);
+    }
+    const result = await createProgressService(userId, parsed.data);
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 201, 'Progreso creado correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al crear progreso', error });
+    return sendError(res, 500, 'Error al crear progreso');
   }
 };
 
 // PUT /api/progress/:id - Actualizar progreso
 export const updateProgress = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   const { id } = req.params;
   try {
-    const updatedProgress = await Progress.findOneAndUpdate(
-      { _id: id, userId },
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!updatedProgress) return res.status(404).json({ message: 'Progreso no encontrado' });
-    res.status(200).json(updatedProgress);
+    const parsed = progressUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, 'Datos de progreso inválidos', parsed.error.issues);
+    }
+    const result = await updateProgressService(userId, id, parsed.data);
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 200, 'Progreso actualizado correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar el progreso', error });
+    return sendError(res, 500, 'Error al actualizar el progreso');
   }
 };
 
 // DELETE /api/progress/:id - Eliminar progreso
 export const deleteProgress = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   const { id } = req.params;
   try {
-    const deletedProgress = await Progress.findOneAndDelete({ _id: id, userId });
-    if (!deletedProgress) return res.status(404).json({ message: 'Progreso no encontrado' });
-    res.status(200).json({ message: 'Progreso eliminado correctamente' });
+    const result = await deleteProgressService(userId, id);
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 200, 'Progreso eliminado correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al eliminar el progreso', error });
+    return sendError(res, 500, 'Error al eliminar el progreso');
   }
 };
 
 // DELETE /api/progress - Eliminar todo el progreso del usuario
 export const clearProgress = async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
   try {
-    await Progress.deleteMany({ userId: new mongoose.Types.ObjectId(userId) });
-    res.status(200).json({ message: 'Progreso eliminado correctamente' });
+    const result = await clearProgressService(userId);
+    if (!result.ok) return sendError(res, result.status, result.message);
+    return sendSuccess(res, 200, 'Progreso eliminado correctamente', result.data);
   } catch (error) {
-    res.status(500).json({ message: 'Error al limpiar progreso', error });
+    return sendError(res, 500, 'Error al limpiar progreso');
   }
 };
