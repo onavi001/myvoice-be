@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listProgress, updateProgress, deleteProgress } from '../controllers/progressController';
+import { listProgress, createProgress, updateProgress, deleteProgress, clearProgress } from '../controllers/progressController';
 
 const router = Router();
 
@@ -7,12 +7,14 @@ const router = Router();
  * @openapi
  * /api/progress:
  *   get:
+ *     tags: [Progress]
  *     summary: Listar progreso del usuario
  *     responses:
  *       200:
  *         description: Lista de progreso
  * /api/progress/{id}:
  *   put:
+ *     tags: [Progress]
  *     summary: Actualizar progreso
  *     parameters:
  *       - in: path
@@ -30,6 +32,7 @@ const router = Router();
  *       200:
  *         description: Progreso actualizado
  *   delete:
+ *     tags: [Progress]
  *     summary: Eliminar progreso
  *     parameters:
  *       - in: path
@@ -43,6 +46,8 @@ const router = Router();
  */
 
 router.get('/', listProgress);
+router.post('/', createProgress);
+router.delete('/', clearProgress);
 router.put('/:id', updateProgress);
 router.delete('/:id', deleteProgress);
 

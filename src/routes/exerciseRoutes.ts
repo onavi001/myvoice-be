@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { updateExercise } from '../controllers/exerciseController';
+import { updateExercise, deleteExercise, generateExercises } from '../controllers/exerciseController';
 
 const router = Router();
 
@@ -7,6 +7,7 @@ const router = Router();
  * @openapi
  * /api/exercises/{id}:
  *   put:
+ *     tags: [Exercises]
  *     summary: Actualizar ejercicio
  *     parameters:
  *       - in: path
@@ -25,6 +26,8 @@ const router = Router();
  *         description: Ejercicio actualizado
  */
 
+router.post('/generate', generateExercises);
 router.put('/:id', updateExercise);
+router.delete('/:id', deleteExercise);
 
 export default router;

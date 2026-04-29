@@ -109,3 +109,77 @@ export const getUserCoachRequest = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error al obtener solicitud', error });
   }
 };
+
+// GET /api/admin/coach-requests - Listar solicitudes de coach a admin
+export const listCoachRequests = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  try {
+    const admin = await User.findById(userId).select('role').lean();
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ message: 'Acceso denegado' });
+    const requests = await AdminCoachRequest.find()
+      .sort({ createdAt: -1 })
+      .populate('userId', '_id username email role')
+      .lean();
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener solicitudes', error });
+  }
+};
+
+// POST /api/admin/coach-requests - Crear solicitud para ser coach
+export const createCoachRequest = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  try {
+    const user = await User.findById(userId).select('role').lean();
+    if (!user || user.role !== 'user') return res.status(403).json({ message: 'Solo usuarios pueden solicitar' });
+    const { message } = req.body;
+    const existingPending = await AdminCoachRequest.findOne({ userId, status: 'pending' }).lean();
+    if (existingPending) return res.status(400).json({ message: 'Ya tienes una solicitud pendiente' });
+    const request = await AdminCoachRequest.create({ userId, message, status: 'pending' });
+    const populated = await AdminCoachRequest.findById(request._id).populate('userId', '_id username email role');
+    res.status(201).json(populated);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al crear solicitud', error });
+  }
+};
+
+// POST /api/admin/coach-requests/:requestId/approve - Aprobar solicitud de coach
+export const approveCoachRequest = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const { requestId } = req.params;
+  try {
+    const admin = await User.findById(userId).select('role').lean();
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ message: 'Acceso denegado' });
+    const request = await AdminCoachRequest.findById(requestId);
+    if (!request) return res.status(404).json({ message: 'Solicitud no encontrada' });
+    request.status = 'approved';
+    await request.save();
+    await User.findByIdAndUpdate(request.userId, { $set: { role: 'coach' } });
+    const populated = await AdminCoachRequest.findById(request._id).populate('userId', '_id username email role');
+    res.status(200).json(populated);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al aprobar solicitud', error });
+  }
+};
+
+// POST /api/admin/coach-requests/:requestId/reject - Rechazar solicitud de coach
+export const rejectCoachRequest = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const { requestId } = req.params;
+  try {
+    const admin = await User.findById(userId).select('role').lean();
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ message: 'Acceso denegado' });
+    const request = await AdminCoachRequest.findById(requestId);
+    if (!request) return res.status(404).json({ message: 'Solicitud no encontrada' });
+    request.status = 'rejected';
+    await request.save();
+    const populated = await AdminCoachRequest.findById(request._id).populate('userId', '_id username email role');
+    res.status(200).json(populated);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al rechazar solicitud', error });
+  }
+};

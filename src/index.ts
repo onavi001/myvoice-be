@@ -16,6 +16,8 @@ import exerciseRoutes from './routes/exerciseRoutes';
 import progressRoutes from './routes/progressRoutes';
 import dayRoutes from './routes/dayRoutes';
 import videoRoutes from './routes/videoRoutes';
+import clientRoutes from './routes/clientRoutes';
+import chatBotRoutes from './routes/chatBotRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 
@@ -30,14 +32,66 @@ const swaggerOptions = {
       version: '1.0.0',
       description: 'Documentación automática de la API de MyVoice',
     },
+    tags: [
+      { name: 'Auth', description: 'Autenticación y sesión' },
+      { name: 'Users', description: 'Gestión de usuarios' },
+      { name: 'Profile', description: 'Perfil del usuario autenticado' },
+      { name: 'Admin', description: 'Operaciones administrativas' },
+      { name: 'Coaches', description: 'Flujo de coach y solicitudes' },
+      { name: 'Routines', description: 'Gestión de rutinas' },
+      { name: 'Exercises', description: 'Gestión de ejercicios' },
+      { name: 'Progress', description: 'Seguimiento de progreso' },
+      { name: 'Days', description: 'Días de entrenamiento' },
+      { name: 'Videos', description: 'Búsqueda y CRUD de videos' },
+    ],
     servers: [
       { url: 'http://localhost:4000' }
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+      schemas: {
+        ErrorResponse: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', example: 'Error al procesar la solicitud' },
+          },
+        },
+        AuthLoginRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string', format: 'email', example: 'user@example.com' },
+            password: { type: 'string', format: 'password', example: '12345678' },
+          },
+        },
+        ForgotPasswordRequest: {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            email: { type: 'string', format: 'email', example: 'user@example.com' },
+          },
+        },
+        ResetPasswordRequest: {
+          type: 'object',
+          required: ['token', 'password'],
+          properties: {
+            token: { type: 'string', example: 'jwt-reset-token' },
+            password: { type: 'string', format: 'password', example: 'newPassword123' },
+          },
+        },
+      },
+    },
   },
   apis: ['./src/routes/*.ts'], // Documenta tus rutas aquí
 };
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
 app.use(cors());
 app.use(express.json());
@@ -52,6 +106,8 @@ app.use('/api/exercises', exerciseRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/days', dayRoutes);
 app.use('/api/videos', videoRoutes);
+app.use('/api/clients', clientRoutes);
+app.use('/api/chatBot', chatBotRoutes);
 
 app.use(errorHandler);
 

@@ -7,11 +7,13 @@ const router = Router();
  * @openapi
  * /api/profile:
  *   get:
+ *     tags: [Profile]
  *     summary: Obtener el perfil del usuario autenticado
  *     responses:
  *       200:
  *         description: Perfil del usuario
  *   put:
+ *     tags: [Profile]
  *     summary: Actualizar el perfil del usuario autenticado
  *     requestBody:
  *       required: true

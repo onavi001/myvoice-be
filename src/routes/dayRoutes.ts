@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { updateDay } from '../controllers/dayController';
+import { updateDay, deleteDay, addExerciseToDay, resetDayProgress } from '../controllers/dayController';
 
 const router = Router();
 
@@ -7,6 +7,7 @@ const router = Router();
  * @openapi
  * /api/days/{id}:
  *   put:
+ *     tags: [Days]
  *     summary: Actualizar día
  *     parameters:
  *       - in: path
@@ -26,5 +27,8 @@ const router = Router();
  */
 
 router.put('/:id', updateDay);
+router.delete('/:id', deleteDay);
+router.put('/:id/reset', resetDayProgress);
+router.post('/:id/exercises', addExerciseToDay);
 
 export default router;

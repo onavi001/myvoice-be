@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import User from '../models/Users';
 import CoachRequest from '../models/CoachRequest';
 import jwt from 'jsonwebtoken';
+import Routine from '../models/Routine';
 
 function getUserIdFromRequest(req: Request): string | null {
   const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
@@ -109,5 +110,92 @@ export const rejectCoachRequest = async (req: Request, res: Response) => {
     res.status(201).json(request);
   } catch (error) {
     res.status(500).json({ message: 'Error al rechazar solicitud', error });
+  }
+};
+
+// GET /api/clients - Listar clientes asignados al coach autenticado
+export const listClients = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  try {
+    const clients = await User.find({ coachId: userId }).select('-password').lean();
+    res.status(200).json(clients);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener clientes', error });
+  }
+};
+
+// GET /api/clients/:clientId - Obtener perfil de cliente asignado
+export const getClientProfile = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const { clientId } = req.params;
+  try {
+    const client = await User.findOne({ _id: clientId, coachId: userId }).select('-password').lean();
+    if (!client) return res.status(404).json({ message: 'Cliente no encontrado' });
+    res.status(200).json(client);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener cliente', error });
+  }
+};
+
+// PUT /api/clients/:clientId - Actualizar objetivos/notas del cliente
+export const updateClientProfile = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const { clientId } = req.params;
+  const { goals, notes } = req.body;
+  try {
+    const client = await User.findOne({ _id: clientId, coachId: userId });
+    if (!client) return res.status(404).json({ message: 'Cliente no encontrado' });
+    if (goals !== undefined) client.goals = goals;
+    if (notes !== undefined) client.notes = notes;
+    await client.save();
+    const serialized = await User.findById(client._id).select('-password').lean();
+    res.status(200).json(serialized);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al actualizar cliente', error });
+  }
+};
+
+// GET /api/clients/:clientId/routines - Listar rutinas del cliente
+export const listClientRoutines = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const { clientId } = req.params;
+  try {
+    const client = await User.findOne({ _id: clientId, coachId: userId }).lean();
+    if (!client) return res.status(404).json({ message: 'Cliente no encontrado' });
+    const routines = await Routine.find({ userId: clientId })
+      .populate({ path: 'days', populate: { path: 'exercises', populate: { path: 'videos' } } })
+      .lean();
+    res.status(200).json(routines);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener rutinas del cliente', error });
+  }
+};
+
+// POST /api/clients/:clientId/routines - Asignar rutina existente al cliente
+export const assignClientRoutine = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  const { clientId } = req.params;
+  const { routineId } = req.body;
+  try {
+    const client = await User.findOne({ _id: clientId, coachId: userId }).lean();
+    if (!client) return res.status(404).json({ message: 'Cliente no encontrado' });
+    const sourceRoutine = await Routine.findById(routineId).lean();
+    if (!sourceRoutine) return res.status(404).json({ message: 'Rutina no encontrada' });
+    const assignedRoutine = await Routine.create({
+      userId: clientId,
+      couchId: userId,
+      name: sourceRoutine.name,
+      days: sourceRoutine.days,
+    });
+    const populated = await Routine.findById(assignedRoutine._id)
+      .populate({ path: 'days', populate: { path: 'exercises', populate: { path: 'videos' } } });
+    res.status(201).json(populated);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al asignar rutina', error });
   }
 };

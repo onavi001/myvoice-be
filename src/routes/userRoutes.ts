@@ -7,11 +7,13 @@ const router = Router();
  * @openapi
  * /api/users:
  *   get:
+ *     tags: [Users]
  *     summary: Obtener todos los usuarios (solo admin)
  *     responses:
  *       200:
  *         description: Lista de usuarios
  *   post:
+ *     tags: [Users]
  *     summary: Registrar un nuevo usuario
  *     requestBody:
  *       required: true

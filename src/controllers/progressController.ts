@@ -35,6 +35,22 @@ export const listProgress = async (req: Request, res: Response) => {
   }
 };
 
+// POST /api/progress - Crear progreso
+export const createProgress = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  try {
+    const payload = {
+      ...req.body,
+      userId: new mongoose.Types.ObjectId(userId),
+    };
+    const createdProgress = await Progress.create(payload);
+    res.status(201).json(createdProgress);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al crear progreso', error });
+  }
+};
+
 // PUT /api/progress/:id - Actualizar progreso
 export const updateProgress = async (req: Request, res: Response) => {
   const userId = getUserIdFromRequest(req);
@@ -64,5 +80,17 @@ export const deleteProgress = async (req: Request, res: Response) => {
     res.status(200).json({ message: 'Progreso eliminado correctamente' });
   } catch (error) {
     res.status(500).json({ message: 'Error al eliminar el progreso', error });
+  }
+};
+
+// DELETE /api/progress - Eliminar todo el progreso del usuario
+export const clearProgress = async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ message: 'No autenticado' });
+  try {
+    await Progress.deleteMany({ userId: new mongoose.Types.ObjectId(userId) });
+    res.status(200).json({ message: 'Progreso eliminado correctamente' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al limpiar progreso', error });
   }
 };

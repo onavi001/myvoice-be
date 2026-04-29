@@ -5,6 +5,7 @@ import { searchVideos, createVideo, updateVideo, deleteVideo } from '../controll
  * @openapi
  * /api/videos:
  *   get:
+ *     tags: [Videos]
  *     summary: Buscar videos de YouTube
  *     parameters:
  *       - in: query
@@ -16,6 +17,7 @@ import { searchVideos, createVideo, updateVideo, deleteVideo } from '../controll
  *       200:
  *         description: Lista de videos
  *   post:
+ *     tags: [Videos]
  *     summary: Crear video
  *     requestBody:
  *       required: true
@@ -28,6 +30,7 @@ import { searchVideos, createVideo, updateVideo, deleteVideo } from '../controll
  *         description: Video creado
  * /api/videos/{id}:
  *   put:
+ *     tags: [Videos]
  *     summary: Actualizar video
  *     parameters:
  *       - in: path
@@ -45,6 +48,7 @@ import { searchVideos, createVideo, updateVideo, deleteVideo } from '../controll
  *       200:
  *         description: Video actualizado
  *   delete:
+ *     tags: [Videos]
  *     summary: Eliminar video
  *     parameters:
  *       - in: path
