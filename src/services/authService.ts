@@ -16,7 +16,8 @@ export async function loginUser(email: string, password: string): Promise<Servic
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return { ok: false, status: 401, message: 'Credenciales inválidas' };
 
-  const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+  // Token de sesión sin expiración para persistencia indefinida.
+  const token = jwt.sign({ userId: user._id, email: user.email }, JWT_SECRET);
   const safeUser = user.toObject();
   delete (safeUser as Partial<typeof safeUser>).password;
   return { ok: true, data: { token, user: safeUser } };
@@ -29,7 +30,7 @@ export async function verifyAuthToken(token: string): Promise<ServiceResult<{ us
     if (!user) return { ok: false, status: 404, message: 'Usuario no encontrado' };
     return { ok: true, data: { user } };
   } catch {
-    return { ok: false, status: 401, message: 'Token inválido o expirado' };
+    return { ok: false, status: 401, message: 'Token inválido' };
   }
 }
 

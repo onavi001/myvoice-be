@@ -1,11 +1,17 @@
 
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 // @ts-ignore
 import swaggerJSDoc from 'swagger-jsdoc';
 import { connectDB } from './utils/mongodb';
-import { PORT } from './config';
+import {
+  AUTH_RATE_LIMIT_MAX,
+  API_RATE_LIMIT_MAX,
+  API_RATE_LIMIT_WINDOW_MS,
+  PORT,
+} from './config';
 import userRoutes from './routes/userRoutes';
 import authRoutes from './routes/authRoutes';
 import profileRoutes from './routes/profileRoutes';
@@ -22,6 +28,22 @@ import { errorHandler } from './middleware/errorHandler';
 
 
 const app = express();
+
+const apiLimiter = rateLimit({
+  windowMs: API_RATE_LIMIT_WINDOW_MS,
+  max: API_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas solicitudes, intenta nuevamente más tarde', data: null, error: 'RATE_LIMIT_EXCEEDED' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: API_RATE_LIMIT_WINDOW_MS,
+  max: AUTH_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiados intentos de autenticación, espera unos minutos', data: null, error: 'AUTH_RATE_LIMIT_EXCEEDED' },
+});
 
 // Configuración de swagger-jsdoc
 const swaggerOptions = {
@@ -142,9 +164,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: t
 
 app.use(cors());
 app.use(express.json());
+app.use('/api', apiLimiter);
 
 app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/coaches', coachRoutes);

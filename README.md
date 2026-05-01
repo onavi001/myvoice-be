@@ -108,6 +108,9 @@ APP_URL=http://localhost:3000
 EMAIL_USER=<smtp-user>
 EMAIL_PASS=<smtp-pass>
 GROQ_API_KEY=<groq-key>
+API_RATE_LIMIT_WINDOW_MS=900000
+API_RATE_LIMIT_MAX=200
+AUTH_RATE_LIMIT_MAX=10
 ```
 
 Variables opcionales/según feature:
@@ -130,3 +133,12 @@ VAPID_PRIVATE_KEY=<web-push-private-key>
 - Respuestas HTTP consistentes.
 - Uso de middleware de errores centralizado.
 - Documentar endpoints en Swagger al crear/editar rutas.
+
+## Validación manual (estado)
+
+Se completó una validación manual end-to-end de los flujos críticos:
+
+- autenticación y rutas protegidas,
+- CRUD de rutinas/días/ejercicios,
+- CRUD de progreso,
+- flujos principales de coach/admin.
