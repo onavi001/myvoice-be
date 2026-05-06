@@ -129,6 +129,176 @@ function pickExercisesForDay(pool: ExerciseTemplate[], usedNames: Set<string>, c
   return source.slice(0, count);
 }
 
+function buildRoutineGenerationPrompt(input: {
+  name: string;
+  goal: RoutineGoal;
+  level: RoutineLevel;
+  dayCount: number;
+  equipment: RoutineEquipment;
+  notes: string;
+  blockWeeks: number;
+  sessionDurationMin: number;
+  injuriesOrPain: string;
+  goalMetric: string;
+  targetDate: string;
+  sleepHours: number;
+  stressLevel: 'bajo' | 'medio' | 'alto';
+  trainingAgeMonths: number;
+}) {
+  return `
+Genera una rutina de entrenamiento personalizada en ESPANOL y devuelve SOLO JSON valido (sin markdown ni texto adicional).
+La rutina debe ser util para mantenerse varias semanas, no solo para una sesion aislada.
+
+DATOS DEL USUARIO (debes respetarlos estrictamente):
+- nombreRutina: ${input.name}
+- objetivo: ${input.goal}
+- nivel: ${input.level}
+- diasSolicitados: ${input.dayCount}
+- equipoDisponible: ${input.equipment}
+- notasUsuario: ${input.notes || 'sin notas'}
+- duracionBloqueSemanas: ${input.blockWeeks}
+- duracionSesionMin: ${input.sessionDurationMin}
+- lesionesODolor: ${input.injuriesOrPain || 'sin lesiones reportadas'}
+- metricaObjetivo: ${input.goalMetric || 'mejorar rendimiento general'}
+- fechaObjetivo: ${input.targetDate || 'sin fecha definida'}
+- suenoHorasPromedio: ${input.sleepHours}
+- estres: ${input.stressLevel}
+- experienciaMeses: ${input.trainingAgeMonths}
+
+REGLAS DE CONSISTENCIA:
+1) Debe haber exactamente ${input.dayCount} dias.
+2) Cada dia debe tener exactamente 4 ejercicios.
+3) Los ejercicios deben ser compatibles con equipo "${input.equipment}".
+4) Ajusta volumen/intensidad al nivel "${input.level}" y objetivo "${input.goal}".
+5) Evita repetir el mismo ejercicio en dias consecutivos; busca variedad de patrones.
+6) Incluye musculosWorked coherente con los ejercicios del dia.
+7) warmupOptions debe incluir 2-3 opciones practicas.
+8) explanation debe ser breve, clara y alineada al objetivo, bloque, recuperacion y notas del usuario.
+9) Usa nombres de ejercicios realistas y comunes.
+10) repsUnit debe ser "count" o "seconds"; weightUnit debe ser "kg" o "lb".
+11) rest debe ser string numerico en segundos (ejemplo: "60", "90", "120").
+12) En cada dia menciona progresion sugerida para las siguientes semanas dentro de "notes" de al menos 1 ejercicio clave.
+
+REGLAS DE VARIEDAD:
+- Distribuye patrones de movimiento (empuje, tiron, pierna, core) a lo largo de la semana.
+- Alterna enfoque muscular por dia para no saturar los mismos grupos siempre.
+- Si objetivo es resistencia, prioriza descansos mas cortos y algun bloque tipo circuito.
+- Si objetivo es fuerza, prioriza menos repeticiones y descansos mas largos.
+- Si objetivo es hipertrofia, usa volumen moderado-alto con tecnica controlada.
+- Si el sueno es bajo o el estres es alto, reduce ligeramente el volumen total y prioriza tecnica/recuperacion.
+- Si hay dolor reportado, evita variantes agresivas para esa zona y propone opciones seguras.
+
+FORMATO JSON OBLIGATORIO:
+{
+  "name": "string",
+  "days": [
+    {
+      "dayName": "string",
+      "explanation": "string",
+      "warmupOptions": ["string", "string"],
+      "musclesWorked": ["string", "string"],
+      "exercises": [
+        {
+          "name": "string",
+          "muscleGroup": ["string"],
+          "sets": 3,
+          "reps": 10,
+          "repsUnit": "count",
+          "weightUnit": "kg",
+          "weight": 0,
+          "rest": "60",
+          "tips": ["string"],
+          "notes": "",
+          "circuitId": ""
+        }
+      ]
+    }
+  ]
+}
+`.trim();
+}
+
+function completeGeneratedDays(
+  partialDays: Array<ReturnType<typeof normalizeGeneratedDay>>,
+  dayCount: number,
+  input: { goal: RoutineGoal; level: RoutineLevel; equipment: RoutineEquipment; notes: string }
+) {
+  const filteredPool = EXERCISE_POOL.filter((item) => item.equipment.includes(input.equipment));
+  const trainingPool = filteredPool.length > 0 ? filteredPool : EXERCISE_POOL;
+  const usedNames = new Set<string>();
+  partialDays.forEach((day) => day.exercises.forEach((exercise) => usedNames.add(exercise.name)));
+
+  const completedDays = [...partialDays];
+
+  for (let i = 0; i < completedDays.length; i += 1) {
+    const day = completedDays[i];
+    if (day.exercises.length < 4) {
+      const missing = 4 - day.exercises.length;
+      const extraTemplates = pickExercisesForDay(trainingPool, usedNames, missing);
+      const extraExercises = extraTemplates.map((template, index) => {
+        usedNames.add(template.name);
+        const scheme = getGoalScheme(input.goal, input.level, template);
+        return {
+          _id: new mongoose.Types.ObjectId().toString(),
+          name: template.name,
+          muscleGroup: template.muscleGroup,
+          sets: scheme.sets,
+          reps: scheme.reps,
+          repsUnit: input.goal === 'resistencia' && template.name === 'Plancha' ? ('seconds' as const) : ('count' as const),
+          weightUnit: scheme.weightUnit,
+          weight: input.equipment === 'casa' ? 0 : input.level === 'avanzado' ? 25 : input.level === 'intermedio' ? 15 : 8,
+          rest: scheme.rest,
+          tips: template.tips,
+          completed: false,
+          videos: [],
+          notes: '',
+          circuitId: day.exercises.length + index >= 2 && input.goal === 'resistencia' ? `C${i + 1}` : '',
+        };
+      });
+      day.exercises = [...day.exercises, ...extraExercises].slice(0, 4);
+      day.musclesWorked = Array.from(new Set(day.exercises.flatMap((exercise) => exercise.muscleGroup)));
+    } else if (day.exercises.length > 4) {
+      day.exercises = day.exercises.slice(0, 4);
+      day.musclesWorked = Array.from(new Set(day.exercises.flatMap((exercise) => exercise.muscleGroup)));
+    }
+  }
+
+  for (let i = completedDays.length; i < dayCount; i += 1) {
+    const exerciseTemplates = pickExercisesForDay(trainingPool, usedNames, 4);
+    for (const template of exerciseTemplates) usedNames.add(template.name);
+    const exercises = exerciseTemplates.map((template, exerciseIndex) => {
+      const scheme = getGoalScheme(input.goal, input.level, template);
+      return {
+        name: template.name,
+        muscleGroup: template.muscleGroup,
+        sets: scheme.sets,
+        reps: scheme.reps,
+        repsUnit: input.goal === 'resistencia' && template.name === 'Plancha' ? 'seconds' : 'count',
+        weightUnit: scheme.weightUnit,
+        weight: input.equipment === 'casa' ? 0 : input.level === 'avanzado' ? 25 : input.level === 'intermedio' ? 15 : 8,
+        rest: scheme.rest,
+        tips: template.tips,
+        notes: '',
+        circuitId: exerciseIndex >= 2 && input.goal === 'resistencia' ? `C${i + 1}` : '',
+      } as GeneratedExercise;
+    });
+    completedDays.push(
+      normalizeGeneratedDay(
+        {
+          dayName: `Dia ${i + 1}`,
+          musclesWorked: Array.from(new Set(exercises.flatMap((item) => item.muscleGroup))),
+          warmupOptions: ['Movilidad articular', 'Activacion de core'],
+          explanation: `Sesion enfocada en ${input.goal} para nivel ${input.level}. ${input.notes ? `Nota: ${input.notes}` : ''}`.trim(),
+          exercises,
+        },
+        i
+      )
+    );
+  }
+
+  return completedDays.slice(0, dayCount);
+}
+
 export async function createRoutineWithRelations(input: {
   userId: string;
   couchId?: string;
@@ -341,31 +511,50 @@ export async function generateRoutineDraft(input: {
   days: number;
   equipment: RoutineEquipment;
   notes: string;
+  blockWeeks?: number;
+  sessionDurationMin?: number;
+  injuriesOrPain?: string;
+  goalMetric?: string;
+  targetDate?: string;
+  sleepHours?: number;
+  stressLevel?: 'bajo' | 'medio' | 'alto';
+  trainingAgeMonths?: number;
 }) {
   const dayCount = Math.min(7, Math.max(1, Number(input.days) || 3));
+  const blockWeeks = Math.min(12, Math.max(2, Number(input.blockWeeks) || 6));
+  const sessionDurationMin = Math.min(120, Math.max(25, Number(input.sessionDurationMin) || 60));
+  const sleepHours = Math.min(12, Math.max(3, Number(input.sleepHours) || 7));
+  const trainingAgeMonths = Math.min(600, Math.max(0, Number(input.trainingAgeMonths) || 6));
+  const stressLevel: 'bajo' | 'medio' | 'alto' = input.stressLevel || 'medio';
   let generatedDays: Array<ReturnType<typeof normalizeGeneratedDay>> = [];
 
   try {
-    const prompt = `
-Genera una rutina de entrenamiento en JSON estricto.
-Parametros:
-- nombre: ${input.name}
-- objetivo: ${input.goal}
-- nivel: ${input.level}
-- dias: ${dayCount}
-- equipo: ${input.equipment}
-- notas: ${input.notes || 'sin notas'}
-
-Reglas:
-- Responde SOLO JSON valido, sin markdown.
-- Estructura exacta con un objeto root y arreglo "days".
-- Debe tener exactamente ${dayCount} dias.
-- 4 ejercicios por dia.
-`;
+    const prompt = buildRoutineGenerationPrompt({
+      name: input.name,
+      goal: input.goal,
+      level: input.level,
+      dayCount,
+      equipment: input.equipment,
+      notes: input.notes,
+      blockWeeks,
+      sessionDurationMin,
+      injuriesOrPain: input.injuriesOrPain || '',
+      goalMetric: input.goalMetric || '',
+      targetDate: input.targetDate || '',
+      sleepHours,
+      stressLevel,
+      trainingAgeMonths,
+    });
     const content = await requestGroqJson(prompt);
     const groqResult = content ? parseGroqJSONContent(content) : null;
     if (groqResult?.days && Array.isArray(groqResult.days) && groqResult.days.length > 0) {
       generatedDays = groqResult.days.slice(0, dayCount).map((day, index) => normalizeGeneratedDay(day, index));
+      generatedDays = completeGeneratedDays(generatedDays, dayCount, {
+        goal: input.goal,
+        level: input.level,
+        equipment: input.equipment,
+        notes: input.notes,
+      });
     }
   } catch {
     generatedDays = [];

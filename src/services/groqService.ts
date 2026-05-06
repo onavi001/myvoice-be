@@ -8,6 +8,11 @@ interface GroqChatResponse {
   }>;
 }
 
+type GroqMessage = {
+  role: 'system' | 'user';
+  content: string;
+};
+
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -18,22 +23,13 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-export async function requestGroqJson(prompt: string): Promise<string | null> {
+async function requestGroqCompletion(messages: GroqMessage[], temperature: number): Promise<string | null> {
   if (!GROQ_API_KEY) return null;
 
   const payload = {
     model: 'llama-3.3-70b-versatile',
-    temperature: 0.5,
-    messages: [
-      {
-        role: 'system',
-        content: 'Eres un entrenador experto. Devuelves solo JSON valido.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
+    temperature,
+    messages,
   };
 
   // Retry simple para mejorar resiliencia ante fallos transitorios.
@@ -66,5 +62,37 @@ export async function requestGroqJson(prompt: string): Promise<string | null> {
   }
 
   return null;
+}
+
+export async function requestGroqJson(prompt: string): Promise<string | null> {
+  return requestGroqCompletion(
+    [
+      {
+        role: 'system',
+        content: 'Eres un entrenador experto. Devuelves solo JSON valido.',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    0.5
+  );
+}
+
+export async function requestGroqText(prompt: string, systemInstruction: string): Promise<string | null> {
+  return requestGroqCompletion(
+    [
+      {
+        role: 'system',
+        content: systemInstruction,
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    0.4
+  );
 }
 

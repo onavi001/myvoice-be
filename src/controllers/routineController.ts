@@ -162,6 +162,14 @@ export const generateRoutine = async (req: Request, res: Response) => {
       days = 3,
       equipment = 'gym',
       notes = '',
+      blockWeeks = 6,
+      sessionDurationMin = 60,
+      injuriesOrPain = '',
+      goalMetric = '',
+      targetDate = '',
+      sleepHours = 7,
+      stressLevel = 'medio',
+      trainingAgeMonths = 6,
     } = req.body as {
       name?: string;
       goal?: RoutineGoal;
@@ -169,6 +177,14 @@ export const generateRoutine = async (req: Request, res: Response) => {
       days?: number;
       equipment?: RoutineEquipment;
       notes?: string;
+      blockWeeks?: number;
+      sessionDurationMin?: number;
+      injuriesOrPain?: string;
+      goalMetric?: string;
+      targetDate?: string;
+      sleepHours?: number;
+      stressLevel?: 'bajo' | 'medio' | 'alto';
+      trainingAgeMonths?: number;
     };
     const draft = await generateRoutineDraft({
       userId,
@@ -178,6 +194,14 @@ export const generateRoutine = async (req: Request, res: Response) => {
       days: Number(days) || 3,
       equipment,
       notes,
+      blockWeeks: Number(blockWeeks) || 6,
+      sessionDurationMin: Number(sessionDurationMin) || 60,
+      injuriesOrPain,
+      goalMetric,
+      targetDate,
+      sleepHours: Number(sleepHours) || 7,
+      stressLevel,
+      trainingAgeMonths: Number(trainingAgeMonths) || 6,
     });
     return sendSuccess(res, 200, 'Rutina generada correctamente', draft);
   } catch (error) {
