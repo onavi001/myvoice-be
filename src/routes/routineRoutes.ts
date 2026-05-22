@@ -8,6 +8,7 @@ import {
   addDayToRoutine,
   resetRoutineProgress,
   generateRoutine,
+  generateRoutineFromImportHandler,
 } from '../controllers/routineController';
 import { requireAuth } from '../middleware/auth';
 
@@ -78,6 +79,7 @@ router.use(requireAuth);
 router.get('/', listRoutines);
 router.post('/', createRoutine);
 router.post('/generate', generateRoutine);
+router.post('/generate-from-import', generateRoutineFromImportHandler);
 router.get('/:routineId', getRoutine);
 router.put('/:routineId', updateRoutine);
 router.put('/:routineId/reset', resetRoutineProgress);

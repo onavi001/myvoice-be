@@ -4,7 +4,8 @@ import Day from '../models/Day';
 import Exercise from '../models/Exercise';
 import User from '../models/Users';
 import { runWithOptionalTransaction } from './transactionService';
-import { requestGroqJson } from './groqService';
+import { GROQ_API_KEY } from '../config';
+import { requestGroqJson, requestGroqJsonWithVision } from './groqService';
 
 type ExerciseInput = {
   _id?: string;
@@ -86,7 +87,35 @@ const EXERCISE_POOL: ExerciseTemplate[] = [
 
 function parseGroqJSONContent(content: string): { name?: string; days?: GeneratedDay[] } | null {
   const cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim();
-  try { return JSON.parse(cleaned); } catch { return null; }
+
+  const tryParse = (raw: string) => {
+    try {
+      return JSON.parse(raw) as { name?: string; days?: GeneratedDay[] };
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = tryParse(cleaned);
+  if (direct?.days && Array.isArray(direct.days)) return direct;
+
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    const sliced = tryParse(cleaned.slice(start, end + 1));
+    if (sliced?.days && Array.isArray(sliced.days)) return sliced;
+  }
+
+  return null;
+}
+
+function daysFromGroqContent(content: string | null): Array<ReturnType<typeof normalizeGeneratedDay>> {
+  if (!content) return [];
+  const groqResult = parseGroqJSONContent(content);
+  if (!groqResult?.days || !Array.isArray(groqResult.days) || groqResult.days.length === 0) {
+    return [];
+  }
+  return groqResult.days.map((day, index) => normalizeGeneratedDay(day, index));
 }
 
 function normalizeGeneratedDay(day: GeneratedDay, dayIndex: number) {
@@ -603,6 +632,170 @@ export async function generateRoutineDraft(input: {
     _id: new mongoose.Types.ObjectId().toString(),
     userId: input.userId,
     name: `${input.name} (${input.goal})`,
+    days: generatedDays,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function buildRoutineImportPrompt(input: {
+  name: string;
+  notes: string;
+  extractedText: string;
+  imageCount: number;
+}) {
+  return `
+Analiza el material adjunto (imagenes y/o texto extraido de documentos) y reconstruye la rutina de entrenamiento en ESPANOL.
+Devuelve SOLO JSON valido (sin markdown ni texto adicional).
+
+CONTEXTO:
+- nombreSugerido: ${input.name || 'Rutina importada'}
+- notasUsuario: ${input.notes || 'sin notas'}
+- cantidadImagenes: ${input.imageCount}
+- textoExtraidoDocumentos:
+"""
+${input.extractedText || 'sin texto extraido'}
+"""
+
+INSTRUCCIONES:
+1) Extrae todos los dias y ejercicios que aparezcan en el material. No inventes dias que no esten.
+2) Si el material tiene menos detalle en algun ejercicio, completa con valores razonables (sets, reps, rest).
+3) Conserva nombres de ejercicios lo mas fieles posible al documento/foto.
+4) warmupOptions: 2-3 opciones si el documento no las trae.
+5) musclesWorked coherente con ejercicios del dia.
+6) repsUnit: "count" o "seconds"; weightUnit: "kg" o "lb"; rest en segundos como string ("60", "90").
+7) Cada dia debe tener al menos 1 ejercicio; si hay muchos, incluye todos los listados.
+8) "name" del JSON: titulo corto de la rutina detectada o el nombre sugerido.
+
+FORMATO JSON OBLIGATORIO:
+{
+  "name": "string",
+  "days": [
+    {
+      "dayName": "string",
+      "explanation": "string",
+      "warmupOptions": ["string"],
+      "musclesWorked": ["string"],
+      "exercises": [
+        {
+          "name": "string",
+          "muscleGroup": ["string"],
+          "sets": 3,
+          "reps": 10,
+          "repsUnit": "count",
+          "weightUnit": "kg",
+          "weight": 0,
+          "rest": "60",
+          "tips": ["string"],
+          "notes": "",
+          "circuitId": ""
+        }
+      ]
+    }
+  ]
+}
+`.trim();
+}
+
+export async function generateRoutineFromImport(input: {
+  userId: string;
+  name?: string;
+  notes?: string;
+  extractedText?: string;
+  images?: string[];
+}) {
+  const images = (input.images ?? []).filter((url) => typeof url === 'string' && url.startsWith('data:image/'));
+  const extractedText = (input.extractedText ?? '').trim().slice(0, 50000);
+  const notes = (input.notes ?? '').trim();
+  const name = (input.name ?? 'Rutina importada').trim() || 'Rutina importada';
+
+  const hasUsefulText =
+    extractedText.length > 80 &&
+    !extractedText.includes('PDF sin texto legible') &&
+    !extractedText.includes('sin texto extraido');
+
+  if (images.length === 0 && !hasUsefulText) {
+    throw new Error('Se requiere al menos una imagen o texto legible del documento');
+  }
+
+  if (!GROQ_API_KEY) {
+    throw new Error('El servidor no tiene configurada la clave de IA (GROQ_API_KEY)');
+  }
+
+  const prompt = buildRoutineImportPrompt({
+    name,
+    notes,
+    extractedText: hasUsefulText ? extractedText : '',
+    imageCount: images.length,
+  });
+
+  let generatedDays: Array<ReturnType<typeof normalizeGeneratedDay>> = [];
+  let detectedName = name;
+
+  // 1) Imagenes / capturas (vision)
+  if (images.length > 0) {
+    try {
+      const content = await requestGroqJsonWithVision(prompt, images);
+      generatedDays = daysFromGroqContent(content);
+      const parsed = content ? parseGroqJSONContent(content) : null;
+      if (parsed?.name?.trim()) detectedName = parsed.name.trim();
+      if (generatedDays.length === 0 && content) {
+        console.error('[import] Vision devolvio contenido sin dias parseables:', content.slice(0, 400));
+      }
+    } catch (error) {
+      console.error('[import] Error en vision:', error);
+    }
+  }
+
+  // 2) Fallback: texto del PDF/documento
+  if (generatedDays.length === 0 && hasUsefulText) {
+    try {
+      const textPrompt = `${prompt}
+
+IMPORTANTE: No hay imagenes adjuntas. Usa UNICAMENTE el texto extraido del documento para reconstruir la rutina.`;
+      const content = await requestGroqJson(textPrompt);
+      generatedDays = daysFromGroqContent(content);
+      const parsed = content ? parseGroqJSONContent(content) : null;
+      if (parsed?.name?.trim()) detectedName = parsed.name.trim();
+      if (generatedDays.length === 0 && content) {
+        console.error('[import] Texto devolvio contenido sin dias parseables:', content.slice(0, 400));
+      }
+    } catch (error) {
+      console.error('[import] Error en texto:', error);
+    }
+  }
+
+  // 3) Imagenes + texto util: segundo intento combinando ambos en prompt de texto
+  if (generatedDays.length === 0 && images.length > 0 && hasUsefulText) {
+    try {
+      const hybridPrompt = `${prompt}
+
+Tambien dispones de este texto OCR/extraido del mismo material:
+"""
+${extractedText}
+"""
+Combina imagen y texto para maximizar precision.`;
+      const content = await requestGroqJsonWithVision(hybridPrompt, images);
+      generatedDays = daysFromGroqContent(content);
+      const parsed = content ? parseGroqJSONContent(content) : null;
+      if (parsed?.name?.trim()) detectedName = parsed.name.trim();
+    } catch (error) {
+      console.error('[import] Error en hibrido vision+texto:', error);
+    }
+  }
+
+  if (generatedDays.length === 0) {
+    throw new Error(
+      images.length > 0 && !hasUsefulText
+        ? 'No se pudo leer la rutina en las imagenes. Prueba capturas mas nitidas o un PDF con texto seleccionable.'
+        : 'No se pudo interpretar la rutina del archivo. Prueba con fotos mas claras o otro documento.'
+    );
+  }
+
+  return {
+    _id: new mongoose.Types.ObjectId().toString(),
+    userId: input.userId,
+    name: detectedName || 'Rutina importada',
     days: generatedDays,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

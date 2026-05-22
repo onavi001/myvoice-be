@@ -8,6 +8,7 @@ import {
   createRoutineWithRelations,
   deleteRoutineCascade,
   generateRoutineDraft,
+  generateRoutineFromImport,
   getRoutineForUser,
   listRoutinesForUser,
   resetRoutineProgressForUser,
@@ -206,6 +207,39 @@ export const generateRoutine = async (req: Request, res: Response) => {
     return sendSuccess(res, 200, 'Rutina generada correctamente', draft);
   } catch (error) {
     return sendError(res, 500, 'Error al generar rutina');
+  }
+};
+
+// POST /api/routines/generate-from-import - Rutina desde imagenes o texto de documento
+export const generateRoutineFromImportHandler = async (req: Request, res: Response) => {
+  const userId = req.userId;
+  if (!userId) return sendError(res, 401, 'No autenticado');
+
+  try {
+    const { name, notes, extractedText, images } = req.body as {
+      name?: string;
+      notes?: string;
+      extractedText?: string;
+      images?: string[];
+    };
+
+    const imageList = Array.isArray(images) ? images : [];
+    if (imageList.length > 5) {
+      return sendError(res, 400, 'Maximo 5 imagenes por solicitud');
+    }
+
+    const draft = await generateRoutineFromImport({
+      userId,
+      name,
+      notes,
+      extractedText,
+      images: imageList,
+    });
+    return sendSuccess(res, 200, 'Rutina importada correctamente', draft);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error al importar rutina';
+    const status = message.includes('requiere') || message.includes('interpretar') ? 400 : 500;
+    return sendError(res, status, message);
   }
 };
 
