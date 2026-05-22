@@ -8,6 +8,13 @@ export const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 export const EMAIL_USER = process.env.EMAIL_USER || '';
 export const EMAIL_PASS = process.env.EMAIL_PASS || '';
 export const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+/** Debe ser menor que maxDuration de Vercel (p. ej. 60s). */
+export const GROQ_VISION_TIMEOUT_MS = process.env.GROQ_VISION_TIMEOUT_MS
+  ? Number(process.env.GROQ_VISION_TIMEOUT_MS)
+  : 55_000;
+export const GROQ_TEXT_TIMEOUT_MS = process.env.GROQ_TEXT_TIMEOUT_MS
+  ? Number(process.env.GROQ_TEXT_TIMEOUT_MS)
+  : 25_000;
 export const API_RATE_LIMIT_WINDOW_MS = process.env.API_RATE_LIMIT_WINDOW_MS
   ? Number(process.env.API_RATE_LIMIT_WINDOW_MS)
   : 15 * 60 * 1000;

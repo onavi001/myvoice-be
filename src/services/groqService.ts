@@ -1,4 +1,4 @@
-import { GROQ_API_KEY } from '../config';
+import { GROQ_API_KEY, GROQ_TEXT_TIMEOUT_MS, GROQ_VISION_TIMEOUT_MS } from '../config';
 
 interface GroqChatResponse {
   choices?: Array<{
@@ -101,7 +101,7 @@ export async function requestGroqJson(prompt: string): Promise<string | null> {
     ],
     0.5,
     GROQ_TEXT_MODEL,
-    15000
+    GROQ_TEXT_TIMEOUT_MS
   );
 }
 
@@ -133,7 +133,7 @@ export async function requestGroqJsonWithVision(
 
   for (const model of GROQ_VISION_MODELS) {
     try {
-      const content = await requestGroqCompletion(messages, 0.2, model, 90000);
+      const content = await requestGroqCompletion(messages, 0.2, model, GROQ_VISION_TIMEOUT_MS);
       if (content) return content;
     } catch (error) {
       console.error(`[Groq] Vision model ${model} failed:`, error);
@@ -157,7 +157,7 @@ export async function requestGroqText(prompt: string, systemInstruction: string)
     ],
     0.4,
     GROQ_TEXT_MODEL,
-    15000
+    GROQ_TEXT_TIMEOUT_MS
   );
 }
 

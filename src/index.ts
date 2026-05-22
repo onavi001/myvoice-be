@@ -25,6 +25,7 @@ import videoRoutes from './routes/videoRoutes';
 import clientRoutes from './routes/clientRoutes';
 import chatBotRoutes from './routes/chatBotRoutes';
 import { errorHandler } from './middleware/errorHandler';
+import { createCorsOptions } from './utils/corsOptions';
 
 
 const app = express();
@@ -163,7 +164,7 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
-app.use(cors());
+app.use(cors(createCorsOptions()));
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', apiLimiter);
 
