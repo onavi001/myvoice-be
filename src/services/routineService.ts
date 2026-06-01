@@ -6,6 +6,7 @@ import User from '../models/Users';
 import { runWithOptionalTransaction } from './transactionService';
 import { GROQ_API_KEY } from '../config';
 import { requestGroqJson, requestGroqJsonWithVision } from './groqService';
+import { buildSessionExercisePlan, type SessionPlanResult } from './routineExercisePlan';
 
 type ExerciseInput = {
   _id?: string;
@@ -165,57 +166,59 @@ function buildRoutineGenerationPrompt(input: {
   dayCount: number;
   equipment: RoutineEquipment;
   notes: string;
-  blockWeeks: number;
+  biologicalSex: 'masculino' | 'femenino';
+  heightCm: number;
+  weightKg: number;
   sessionDurationMin: number;
-  injuriesOrPain: string;
-  goalMetric: string;
-  targetDate: string;
-  sleepHours: number;
-  stressLevel: 'bajo' | 'medio' | 'alto';
-  trainingAgeMonths: number;
+  sessionPlan: SessionPlanResult;
 }) {
+  const { sessionPlan } = input;
+  const exercisesPerDay = sessionPlan.exercisesPerDay;
+
   return `
 Genera una rutina de entrenamiento personalizada en ESPANOL y devuelve SOLO JSON valido (sin markdown ni texto adicional).
 La rutina debe ser util para mantenerse varias semanas, no solo para una sesion aislada.
 
 DATOS DEL USUARIO (debes respetarlos estrictamente):
 - nombreRutina: ${input.name}
+- sexoBiologico: ${input.biologicalSex}
+- alturaCm: ${input.heightCm}
+- pesoKg: ${input.weightKg}
+- imc: ${sessionPlan.bmi}
+- categoriaComposicionCorporal: ${sessionPlan.bmiCategory}
+- tiempoDisponibleMin: ${input.sessionDurationMin}
 - objetivo: ${input.goal}
 - nivel: ${input.level}
 - diasSolicitados: ${input.dayCount}
 - equipoDisponible: ${input.equipment}
 - notasUsuario: ${input.notes || 'sin notas'}
-- duracionBloqueSemanas: ${input.blockWeeks}
-- duracionSesionMin: ${input.sessionDurationMin}
-- lesionesODolor: ${input.injuriesOrPain || 'sin lesiones reportadas'}
-- metricaObjetivo: ${input.goalMetric || 'mejorar rendimiento general'}
-- fechaObjetivo: ${input.targetDate || 'sin fecha definida'}
-- suenoHorasPromedio: ${input.sleepHours}
-- estres: ${input.stressLevel}
-- experienciaMeses: ${input.trainingAgeMonths}
+- ejerciciosPorDia: ${exercisesPerDay}
+- minutosEstimadosPorEjercicio: ~${sessionPlan.minutesPerExercise.toFixed(1)}
+- criterioEjerciciosPorDia: ${sessionPlan.planRationale}
 
 REGLAS DE CONSISTENCIA:
 1) Debe haber exactamente ${input.dayCount} dias.
-2) Cada dia debe tener exactamente 4 ejercicios.
+2) Cada dia debe tener exactamente ${exercisesPerDay} ejercicios. Este numero ya fue calculado con tiempo (${input.sessionDurationMin} min), sexo biologico, altura, peso, IMC, objetivo, nivel y equipo; NO agregues ni quites ejercicios.
 3) Los ejercicios deben ser compatibles con equipo "${input.equipment}".
-4) Ajusta volumen/intensidad al nivel "${input.level}" y objetivo "${input.goal}".
+4) Ajusta series, repeticiones y descansos al nivel "${input.level}" y objetivo "${input.goal}" de forma que la sesion completa (incluye calentamiento) quepa en ${input.sessionDurationMin} min con ${exercisesPerDay} ejercicios (~${sessionPlan.minutesPerExercise.toFixed(1)} min por ejercicio).
 5) Evita repetir el mismo ejercicio en dias consecutivos; busca variedad de patrones.
 6) Incluye musculosWorked coherente con los ejercicios del dia.
-7) warmupOptions debe incluir 2-3 opciones practicas.
-8) explanation debe ser breve, clara y alineada al objetivo, bloque, recuperacion y notas del usuario.
+7) warmupOptions debe incluir 2-3 opciones practicas acordes al nivel y composicion corporal.
+8) explanation debe mencionar brevemente como se adapto la rutina al perfil (tiempo, objetivo, nivel, datos corporales).
 9) Usa nombres de ejercicios realistas y comunes.
 10) repsUnit debe ser "count" o "seconds"; weightUnit debe ser "kg" o "lb".
 11) rest debe ser string numerico en segundos (ejemplo: "60", "90", "120").
-12) En cada dia menciona progresion sugerida para las siguientes semanas dentro de "notes" de al menos 1 ejercicio clave.
+12) Pesos iniciales (kg): calibra con peso corporal ${input.weightKg} kg, altura ${input.heightCm} cm, sexo biologico ${input.biologicalSex} y nivel ${input.level}. Principiante o IMC alto: cargas conservadoras y tecnica; avanzado con IMC normal: progresion mas ambiciosa si aplica. Usa 0 solo en peso corporal o sin carga externa.
+13) Si categoriaComposicionCorporal es sobrepeso u obesidad, o nivel principiante, prioriza ejercicios seguros, descansos algo mas largos y menos fatiga articular antes de subir volumen.
+14) El sexo biologico influye en recuperacion y cargas relativas; ajusta sin estereotipos ni lenguaje ofensivo.
 
 REGLAS DE VARIEDAD:
 - Distribuye patrones de movimiento (empuje, tiron, pierna, core) a lo largo de la semana.
 - Alterna enfoque muscular por dia para no saturar los mismos grupos siempre.
-- Si objetivo es resistencia, prioriza descansos mas cortos y algun bloque tipo circuito.
-- Si objetivo es fuerza, prioriza menos repeticiones y descansos mas largos.
-- Si objetivo es hipertrofia, usa volumen moderado-alto con tecnica controlada.
-- Si el sueno es bajo o el estres es alto, reduce ligeramente el volumen total y prioriza tecnica/recuperacion.
-- Si hay dolor reportado, evita variantes agresivas para esa zona y propone opciones seguras.
+- Si objetivo es resistencia, prioriza descansos mas cortos y algun bloque tipo circuito (circuitId cuando aplique).
+- Si objetivo es fuerza, prioriza menos repeticiones y descansos mas largos; con ${exercisesPerDay} ejercicios no satures la sesion.
+- Si objetivo es hipertrofia, usa volumen moderado-alto con tecnica controlada acorde al tiempo disponible.
+- Si hay notas sobre lesiones o limitaciones, evita variantes agresivas y propone opciones seguras.
 
 FORMATO JSON OBLIGATORIO:
 {
@@ -250,6 +253,7 @@ FORMATO JSON OBLIGATORIO:
 function completeGeneratedDays(
   partialDays: Array<ReturnType<typeof normalizeGeneratedDay>>,
   dayCount: number,
+  exercisesPerDay: number,
   input: { goal: RoutineGoal; level: RoutineLevel; equipment: RoutineEquipment; notes: string }
 ) {
   const filteredPool = EXERCISE_POOL.filter((item) => item.equipment.includes(input.equipment));
@@ -261,8 +265,8 @@ function completeGeneratedDays(
 
   for (let i = 0; i < completedDays.length; i += 1) {
     const day = completedDays[i];
-    if (day.exercises.length < 4) {
-      const missing = 4 - day.exercises.length;
+    if (day.exercises.length < exercisesPerDay) {
+      const missing = exercisesPerDay - day.exercises.length;
       const extraTemplates = pickExercisesForDay(trainingPool, usedNames, missing);
       const extraExercises = extraTemplates.map((template, index) => {
         usedNames.add(template.name);
@@ -284,16 +288,16 @@ function completeGeneratedDays(
           circuitId: day.exercises.length + index >= 2 && input.goal === 'resistencia' ? `C${i + 1}` : '',
         };
       });
-      day.exercises = [...day.exercises, ...extraExercises].slice(0, 4);
+      day.exercises = [...day.exercises, ...extraExercises].slice(0, exercisesPerDay);
       day.musclesWorked = Array.from(new Set(day.exercises.flatMap((exercise) => exercise.muscleGroup)));
-    } else if (day.exercises.length > 4) {
-      day.exercises = day.exercises.slice(0, 4);
+    } else if (day.exercises.length > exercisesPerDay) {
+      day.exercises = day.exercises.slice(0, exercisesPerDay);
       day.musclesWorked = Array.from(new Set(day.exercises.flatMap((exercise) => exercise.muscleGroup)));
     }
   }
 
   for (let i = completedDays.length; i < dayCount; i += 1) {
-    const exerciseTemplates = pickExercisesForDay(trainingPool, usedNames, 4);
+    const exerciseTemplates = pickExercisesForDay(trainingPool, usedNames, exercisesPerDay);
     for (const template of exerciseTemplates) usedNames.add(template.name);
     const exercises = exerciseTemplates.map((template, exerciseIndex) => {
       const scheme = getGoalScheme(input.goal, input.level, template);
@@ -532,6 +536,8 @@ export async function updateRoutineWithRelations(input: {
   return routine;
 }
 
+export type BiologicalSex = 'masculino' | 'femenino';
+
 export async function generateRoutineDraft(input: {
   userId: string;
   name: string;
@@ -540,21 +546,27 @@ export async function generateRoutineDraft(input: {
   days: number;
   equipment: RoutineEquipment;
   notes: string;
-  blockWeeks?: number;
+  biologicalSex?: BiologicalSex;
+  heightCm?: number;
+  weightKg?: number;
   sessionDurationMin?: number;
-  injuriesOrPain?: string;
-  goalMetric?: string;
-  targetDate?: string;
-  sleepHours?: number;
-  stressLevel?: 'bajo' | 'medio' | 'alto';
-  trainingAgeMonths?: number;
 }) {
   const dayCount = Math.min(7, Math.max(1, Number(input.days) || 3));
-  const blockWeeks = Math.min(12, Math.max(2, Number(input.blockWeeks) || 6));
-  const sessionDurationMin = Math.min(120, Math.max(25, Number(input.sessionDurationMin) || 60));
-  const sleepHours = Math.min(12, Math.max(3, Number(input.sleepHours) || 7));
-  const trainingAgeMonths = Math.min(600, Math.max(0, Number(input.trainingAgeMonths) || 6));
-  const stressLevel: 'bajo' | 'medio' | 'alto' = input.stressLevel || 'medio';
+  const sessionDurationMin = Math.min(180, Math.max(20, Number(input.sessionDurationMin) || 60));
+  const heightCm = Math.min(230, Math.max(120, Number(input.heightCm) || 170));
+  const weightKg = Math.min(250, Math.max(30, Number(input.weightKg) || 70));
+  const biologicalSex: BiologicalSex =
+    input.biologicalSex === 'femenino' ? 'femenino' : 'masculino';
+  const sessionPlan = buildSessionExercisePlan({
+    sessionDurationMin,
+    goal: input.goal,
+    level: input.level,
+    equipment: input.equipment,
+    heightCm,
+    weightKg,
+    biologicalSex,
+  });
+  const perDay = sessionPlan.exercisesPerDay;
   let generatedDays: Array<ReturnType<typeof normalizeGeneratedDay>> = [];
 
   try {
@@ -565,20 +577,17 @@ export async function generateRoutineDraft(input: {
       dayCount,
       equipment: input.equipment,
       notes: input.notes,
-      blockWeeks,
+      biologicalSex,
+      heightCm,
+      weightKg,
       sessionDurationMin,
-      injuriesOrPain: input.injuriesOrPain || '',
-      goalMetric: input.goalMetric || '',
-      targetDate: input.targetDate || '',
-      sleepHours,
-      stressLevel,
-      trainingAgeMonths,
+      sessionPlan,
     });
     const content = await requestGroqJson(prompt);
     const groqResult = content ? parseGroqJSONContent(content) : null;
     if (groqResult?.days && Array.isArray(groqResult.days) && groqResult.days.length > 0) {
       generatedDays = groqResult.days.slice(0, dayCount).map((day, index) => normalizeGeneratedDay(day, index));
-      generatedDays = completeGeneratedDays(generatedDays, dayCount, {
+      generatedDays = completeGeneratedDays(generatedDays, dayCount, perDay, {
         goal: input.goal,
         level: input.level,
         equipment: input.equipment,
@@ -594,7 +603,7 @@ export async function generateRoutineDraft(input: {
     const trainingPool = filteredPool.length > 0 ? filteredPool : EXERCISE_POOL;
     const usedNames = new Set<string>();
     for (let i = 0; i < dayCount; i += 1) {
-      const exerciseTemplates = pickExercisesForDay(trainingPool, usedNames, 4);
+      const exerciseTemplates = pickExercisesForDay(trainingPool, usedNames, perDay);
       for (const template of exerciseTemplates) usedNames.add(template.name);
       const exercises = exerciseTemplates.map((template, exerciseIndex) => {
         const scheme = getGoalScheme(input.goal, input.level, template);

@@ -17,6 +17,8 @@ import {
   RoutineLevel,
   updateRoutineWithRelations,
 } from '../services/routineService';
+import { upsertTrainingProfileService } from '../services/trainingProfileService';
+import { buildSessionExercisePlan } from '../services/routineExercisePlan';
 
 async function populateRoutineById(routineId: string) {
   return Routine.findById(routineId).populate({
@@ -151,6 +153,44 @@ export const resetRoutineProgress = async (req: Request, res: Response) => {
   }
 };
 
+// POST /api/routines/session-plan - Vista previa de ejercicios por sesión según perfil
+export const getSessionExercisePlan = async (req: Request, res: Response) => {
+  if (!req.userId) return sendError(res, 401, 'No autenticado');
+  try {
+    const {
+      goal = 'hipertrofia',
+      level = 'intermedio',
+      equipment = 'gym',
+      biologicalSex = 'masculino',
+      heightCm = 170,
+      weightKg = 70,
+      sessionDurationMin = 60,
+    } = req.body as {
+      goal?: RoutineGoal;
+      level?: RoutineLevel;
+      equipment?: RoutineEquipment;
+      biologicalSex?: 'masculino' | 'femenino';
+      heightCm?: number;
+      weightKg?: number;
+      sessionDurationMin?: number;
+    };
+
+    const plan = buildSessionExercisePlan({
+      goal,
+      level,
+      equipment,
+      biologicalSex: biologicalSex === 'femenino' ? 'femenino' : 'masculino',
+      heightCm: Math.min(230, Math.max(120, Number(heightCm) || 170)),
+      weightKg: Math.min(250, Math.max(30, Number(weightKg) || 70)),
+      sessionDurationMin: Math.min(180, Math.max(20, Number(sessionDurationMin) || 60)),
+    });
+
+    return sendSuccess(res, 200, 'Plan de sesión calculado', plan);
+  } catch {
+    return sendError(res, 500, 'Error al calcular plan de sesión');
+  }
+};
+
 // POST /api/routines/generate - Generar rutina base
 export const generateRoutine = async (req: Request, res: Response) => {
   const userId = req.userId;
@@ -163,14 +203,10 @@ export const generateRoutine = async (req: Request, res: Response) => {
       days = 3,
       equipment = 'gym',
       notes = '',
-      blockWeeks = 6,
+      biologicalSex = 'masculino',
+      heightCm = 170,
+      weightKg = 70,
       sessionDurationMin = 60,
-      injuriesOrPain = '',
-      goalMetric = '',
-      targetDate = '',
-      sleepHours = 7,
-      stressLevel = 'medio',
-      trainingAgeMonths = 6,
     } = req.body as {
       name?: string;
       goal?: RoutineGoal;
@@ -178,15 +214,20 @@ export const generateRoutine = async (req: Request, res: Response) => {
       days?: number;
       equipment?: RoutineEquipment;
       notes?: string;
-      blockWeeks?: number;
+      biologicalSex?: 'masculino' | 'femenino';
+      heightCm?: number;
+      weightKg?: number;
       sessionDurationMin?: number;
-      injuriesOrPain?: string;
-      goalMetric?: string;
-      targetDate?: string;
-      sleepHours?: number;
-      stressLevel?: 'bajo' | 'medio' | 'alto';
-      trainingAgeMonths?: number;
     };
+    const profilePayload = {
+      biologicalSex: biologicalSex === 'femenino' ? 'femenino' : 'masculino',
+      heightCm: Number(heightCm) || 170,
+      weightKg: Number(weightKg) || 70,
+      sessionDurationMin: Number(sessionDurationMin) || 60,
+    } as const;
+
+    await upsertTrainingProfileService(userId, profilePayload);
+
     const draft = await generateRoutineDraft({
       userId,
       name,
@@ -195,14 +236,7 @@ export const generateRoutine = async (req: Request, res: Response) => {
       days: Number(days) || 3,
       equipment,
       notes,
-      blockWeeks: Number(blockWeeks) || 6,
-      sessionDurationMin: Number(sessionDurationMin) || 60,
-      injuriesOrPain,
-      goalMetric,
-      targetDate,
-      sleepHours: Number(sleepHours) || 7,
-      stressLevel,
-      trainingAgeMonths: Number(trainingAgeMonths) || 6,
+      ...profilePayload,
     });
     return sendSuccess(res, 200, 'Rutina generada correctamente', draft);
   } catch (error) {

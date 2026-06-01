@@ -1,4 +1,5 @@
 import { Schema, model, Document, Model, Types } from "mongoose";
+import type { TrainingProfile } from "../types/trainingProfile";
 
 export interface IUser extends Document {
   username: string;
@@ -10,10 +11,22 @@ export interface IUser extends Document {
   coachId?: Types.ObjectId;
   specialties?: string;
   bio?: string;
+  trainingProfile?: TrainingProfile;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
   createdAt: Date;
 }
+
+const TrainingProfileSchema = new Schema(
+  {
+    biologicalSex: { type: String, enum: ["masculino", "femenino"], required: true },
+    heightCm: { type: Number, required: true, min: 120, max: 230 },
+    weightKg: { type: Number, required: true, min: 30, max: 250 },
+    sessionDurationMin: { type: Number, required: true, min: 20, max: 180 },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const UserSchema: Schema = new Schema<IUser>({
   username: { type: String, required: true },
@@ -25,6 +38,7 @@ const UserSchema: Schema = new Schema<IUser>({
   coachId: { type: Schema.Types.ObjectId, ref: "User" },
   specialties: [{ type: String }],
   bio: { type: String },
+  trainingProfile: { type: TrainingProfileSchema, default: undefined },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
   createdAt: { type: Date, default: Date.now },
