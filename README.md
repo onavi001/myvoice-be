@@ -113,7 +113,7 @@ API_RATE_LIMIT_MAX=200
 AUTH_RATE_LIMIT_MAX=10
 GROQ_VISION_TIMEOUT_MS=55000
 GROQ_TEXT_TIMEOUT_MS=25000
-CORS_ORIGINS=https://tu-app.web.app,https://localhost
+CORS_ORIGINS=https://myvoice-fit.netlify.app,https://tu-app.web.app
 ```
 
 Variables opcionales/según feature:
