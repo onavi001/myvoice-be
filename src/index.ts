@@ -183,8 +183,12 @@ app.use('/api/chatBot', chatBotRoutes);
 
 app.use(errorHandler);
 
-connectDB().then(() => {
+void connectDB();
+
+export default app;
+
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-});
+}

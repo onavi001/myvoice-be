@@ -137,6 +137,12 @@ VAPID_PRIVATE_KEY=<web-push-private-key>
 - Uso de middleware de errores centralizado.
 - Documentar endpoints en Swagger al crear/editar rutas.
 
+## Despliegue en Vercel
+
+- `vercel.json` usa solo `builds` + `routes` (no mezclar con `functions` en el mismo archivo).
+- En el proyecto de Vercel: **Settings → Functions → Max Duration = 60 s** (necesario para generación/importación con IA).
+- Tras cada push a `main`, confirma en **Deployments** que el commit desplegado es el último.
+
 ## Validación manual (estado)
 
 Se completó una validación manual end-to-end de los flujos críticos:
