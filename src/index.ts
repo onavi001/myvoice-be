@@ -25,6 +25,7 @@ import videoRoutes from './routes/videoRoutes';
 import clientRoutes from './routes/clientRoutes';
 import chatBotRoutes from './routes/chatBotRoutes';
 import appRoutes from './routes/appRoutes';
+import feedbackRoutes from './routes/feedbackRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { createCorsOptions } from './utils/corsOptions';
 
@@ -69,6 +70,7 @@ const swaggerOptions = {
       { name: 'Days', description: 'Días de entrenamiento' },
       { name: 'Videos', description: 'Búsqueda y CRUD de videos' },
       { name: 'App', description: 'Versión mínima y actual de la app móvil' },
+      { name: 'Feedback', description: 'Comentarios y sugerencias de usuarios' },
     ],
     servers: [
       { url: 'http://localhost:4000' }
@@ -183,6 +185,7 @@ app.use('/api/videos', videoRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/chatBot', chatBotRoutes);
 app.use('/api/app', appRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 app.use(errorHandler);
 
