@@ -819,15 +819,32 @@ async function populateRoutineById(routineId: string) {
 }
 
 export async function listRoutinesForUser(userId: string) {
-  const user = await User.findById(userId).lean();
-  const query: Record<string, unknown> = { name: { $ne: null }, 'days.0': { $exists: true } };
-  if (user && user.role === 'coach') {
-    query.$or = [{ userId }, { couchId: userId }];
-  } else {
-    query.userId = userId;
+  const coachId = new mongoose.Types.ObjectId(userId);
+  const user = await User.findById(coachId).lean();
+  const baseFilter = { name: { $ne: null } };
+  const hasDays = { 'days.0': { $exists: true } };
+  const populate = {
+    path: 'days',
+    populate: { path: 'exercises', populate: { path: 'videos' } },
+  } as const;
+
+  if (user?.role === 'coach') {
+    return Routine.find({
+      ...baseFilter,
+      $or: [
+        {
+          userId: coachId,
+          $or: [{ couchId: { $exists: false } }, { couchId: null }],
+        },
+        { couchId: coachId, ...hasDays },
+      ],
+    })
+      .populate(populate)
+      .lean();
   }
-  return Routine.find(query)
-    .populate({ path: 'days', populate: { path: 'exercises', populate: { path: 'videos' } } })
+
+  return Routine.find({ ...baseFilter, ...hasDays, userId: coachId })
+    .populate(populate)
     .lean();
 }
 

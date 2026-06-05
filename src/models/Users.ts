@@ -9,6 +9,7 @@ export interface IUser extends Document {
   goals?: string[];
   notes?: string;
   coachId?: Types.ObjectId;
+  coachCode?: string;
   specialties?: string;
   bio?: string;
   trainingProfile?: TrainingProfile;
@@ -36,6 +37,7 @@ const UserSchema: Schema = new Schema<IUser>({
   goals: [{ type: String }],
   notes: { type: String },
   coachId: { type: Schema.Types.ObjectId, ref: "User" },
+  coachCode: { type: String, unique: true, sparse: true, uppercase: true, trim: true },
   specialties: [{ type: String }],
   bio: { type: String },
   trainingProfile: { type: TrainingProfileSchema, default: undefined },

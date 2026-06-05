@@ -67,7 +67,9 @@ export const createCoachRequest = async (req: Request, res: Response) => {
   const userId = req.userId;
   if (!userId) return sendError(res, 401, 'No autenticado');
   try {
-    const { message } = req.body;
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    if (!message) return sendError(res, 400, 'El mensaje es obligatorio');
+    if (message.length > 500) return sendError(res, 400, 'El mensaje no puede exceder 500 caracteres');
     const result = await createCoachRequestService(userId, message);
     if (!result.ok) return sendError(res, result.status, result.message);
     return sendSuccess(res, 201, 'Solicitud creada correctamente', result.data);

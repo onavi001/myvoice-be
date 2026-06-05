@@ -1,16 +1,28 @@
 import { z } from 'zod';
 import AdminCoachRequest from '../models/AdminCoachRequest';
 import User from '../models/Users';
+import { ensureCoachCode } from './coachHelpers';
 
 type ServiceError = { ok: false; status: number; message: string; details?: unknown };
 type ServiceOk<T> = { ok: true; data: T };
 type ServiceResult<T> = ServiceOk<T> | ServiceError;
 
-const UserUpdateSchema = z.object({
-  name: z.string().min(3).max(50).regex(/^[a-zA-Z0-9\s-]+$/),
-  email: z.string().email().max(100),
-  role: z.enum(['user', 'coach', 'admin']),
-});
+const UserUpdateSchema = z
+  .object({
+    name: z.string().min(3).max(50).regex(/^[a-zA-Z0-9\s-]+$/).optional(),
+    username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9\s-]+$/).optional(),
+    email: z.string().email().max(100),
+    role: z.enum(['user', 'coach', 'admin']),
+  })
+  .refine((data) => Boolean(data.name ?? data.username), {
+    message: 'El nombre es obligatorio',
+    path: ['name'],
+  })
+  .transform((data) => ({
+    name: (data.name ?? data.username)!,
+    email: data.email,
+    role: data.role,
+  }));
 
 async function requireRole(userId: string, role: 'admin' | 'user'): Promise<ServiceResult<null>> {
   const user = await User.findById(userId).select('role').lean();
@@ -60,6 +72,10 @@ export async function updateUserService(
     { new: true, select: '_id username email role' }
   );
   if (!updatedUser) return { ok: false, status: 500, message: 'Error al actualizar usuario' };
+
+  if (role === 'coach') {
+    await ensureCoachCode(targetUserId);
+  }
 
   return {
     ok: true,
@@ -125,6 +141,7 @@ export async function approveCoachRequestService(adminId: string, requestId: str
   request.status = 'approved';
   await request.save();
   await User.findByIdAndUpdate(request.userId, { $set: { role: 'coach' } });
+  await ensureCoachCode(request.userId.toString());
   const populated = await AdminCoachRequest.findById(request._id).populate('userId', '_id username email role');
   return { ok: true, data: populated };
 }

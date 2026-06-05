@@ -1,15 +1,16 @@
 import { Router } from 'express';
 import {
+  getMyCoachOverview,
   listCoaches,
+  getCoachByCode,
   requestCoach,
+  requestCoachByCode,
+  getCoachProfile,
+  markAssignmentSeen,
+  leaveCoach,
   getCoachRequests,
   acceptCoachRequest,
   rejectCoachRequest,
-  listClients,
-  getClientProfile,
-  updateClientProfile,
-  listClientRoutines,
-  assignClientRoutine,
 } from '../controllers/coachController';
 import { requireAuth } from '../middleware/auth';
 
@@ -72,15 +73,16 @@ import { requireAuth } from '../middleware/auth';
 const router = Router();
 
 router.get('/', listCoaches);
+router.get('/code/:code', getCoachByCode);
 router.use(requireAuth);
+router.get('/profile', getCoachProfile);
+router.get('/my-coach', getMyCoachOverview);
+router.post('/join', requestCoachByCode);
+router.post('/assignments/:routineId/seen', markAssignmentSeen);
+router.post('/leave', leaveCoach);
 router.post('/requests', requestCoach);
 router.get('/requests', getCoachRequests);
 router.post('/accept', acceptCoachRequest);
 router.post('/reject', rejectCoachRequest);
-router.get('/clients', listClients);
-router.get('/clients/:clientId', getClientProfile);
-router.put('/clients/:clientId', updateClientProfile);
-router.get('/clients/:clientId/routines', listClientRoutines);
-router.post('/clients/:clientId/routines', assignClientRoutine);
 
 export default router;

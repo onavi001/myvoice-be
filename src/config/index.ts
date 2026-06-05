@@ -20,10 +20,10 @@ export const API_RATE_LIMIT_WINDOW_MS = process.env.API_RATE_LIMIT_WINDOW_MS
   : 15 * 60 * 1000;
 export const API_RATE_LIMIT_MAX = process.env.API_RATE_LIMIT_MAX
   ? Number(process.env.API_RATE_LIMIT_MAX)
-  : 200;
+  : 500;
 export const AUTH_RATE_LIMIT_MAX = process.env.AUTH_RATE_LIMIT_MAX
   ? Number(process.env.AUTH_RATE_LIMIT_MAX)
-  : 10;
+  : 40;
 
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET is required');

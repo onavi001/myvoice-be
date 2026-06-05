@@ -38,6 +38,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Demasiadas solicitudes, intenta nuevamente más tarde', data: null, error: 'RATE_LIMIT_EXCEEDED' },
+  skip: (req) => req.method === 'GET' && req.originalUrl.startsWith('/api/auth/verify'),
 });
 
 const authLimiter = rateLimit({
