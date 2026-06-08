@@ -1,6 +1,7 @@
 import Exercise from '../models/Exercise';
 import Day from '../models/Day';
 import Routine from '../models/Routine';
+import { buildRoutineAccessQuery } from './routineService';
 import { requestGroqJson } from './groqService';
 import type { GenerateExercisesInput } from '../validators/exerciseValidators';
 
@@ -34,7 +35,8 @@ const FALLBACK_BY_MUSCLE: Record<string, string[]> = {
 async function userOwnsExercise(userId: string, exerciseId: string) {
   const day = await Day.findOne({ exercises: exerciseId }).select('_id').lean();
   if (!day?._id) return false;
-  const routine = await Routine.findOne({ days: day._id, $or: [{ userId }, { couchId: userId }] })
+  const accessQuery = await buildRoutineAccessQuery(userId);
+  const routine = await Routine.findOne({ days: day._id, ...accessQuery })
     .select('_id')
     .lean();
   return Boolean(routine?._id);

@@ -5,6 +5,7 @@ import { sendError, sendSuccess } from '../utils/apiResponse';
 import { createRoutineSchema, updateRoutineSchema } from '../validators/routineValidators';
 import {
   addDayWithExercises,
+  canUserAccessRoutine,
   createRoutineWithRelations,
   deleteRoutineCascade,
   generateRoutineDraft,
@@ -74,7 +75,7 @@ export const updateRoutine = async (req: Request, res: Response) => {
     const { routineData } = parsed.data;
     const routine = await Routine.findById(routineId).lean();
     if (!routine) return sendError(res, 404, 'Rutina no encontrada');
-    if (routine.userId?.toString() !== userId && routine.couchId?.toString() !== userId) {
+    if (!(await canUserAccessRoutine(userId, routine))) {
       return sendError(res, 403, 'No autorizado');
     }
     await updateRoutineWithRelations({
@@ -124,7 +125,7 @@ export const deleteRoutine = async (req: Request, res: Response) => {
   try {
     const routine = await Routine.findById(routineId).lean();
     if (!routine) return sendError(res, 404, 'Rutina no encontrada');
-    if (routine.userId?.toString() !== userId && routine.couchId?.toString() !== userId) {
+    if (!(await canUserAccessRoutine(userId, routine))) {
       return sendError(res, 403, 'No autorizado');
     }
     const dayIds = (routine.days || []).map((dayId) => dayId.toString());
@@ -285,7 +286,7 @@ export const addDayToRoutine = async (req: Request, res: Response) => {
   try {
     const routine = await Routine.findById(routineId).lean();
     if (!routine) return sendError(res, 404, 'Rutina no encontrada');
-    if (routine.userId?.toString() !== userId && routine.couchId?.toString() !== userId) {
+    if (!(await canUserAccessRoutine(userId, routine))) {
       return sendError(res, 403, 'No autorizado');
     }
     const { dayName, musclesWorked, warmupOptions, explanation, exercises } = req.body;

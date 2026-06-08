@@ -246,9 +246,12 @@ export const assignClientRoutine = async (req: Request, res: Response) => {
   const userId = req.userId;
   if (!userId) return sendError(res, 401, 'No autenticado');
   const { clientId } = req.params;
-  const { routineId, message } = req.body;
+  const { routineId, message, name } = req.body;
+  const trimmedName = typeof name === 'string' ? name.trim() : '';
+  if (!routineId) return sendError(res, 400, 'routineId es obligatorio');
+  if (!trimmedName) return sendError(res, 400, 'El nombre de la rutina es obligatorio');
   try {
-    const result = await assignClientRoutineService(userId, clientId, routineId, message);
+    const result = await assignClientRoutineService(userId, clientId, routineId, trimmedName, message);
     if (!result.ok) return sendError(res, result.status, result.message);
     return sendSuccess(res, 201, 'Rutina asignada correctamente', result.data);
   } catch (error) {

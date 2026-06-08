@@ -2,13 +2,15 @@ import mongoose from 'mongoose';
 import Day from '../models/Day';
 import Exercise from '../models/Exercise';
 import Routine from '../models/Routine';
+import { buildRoutineAccessQuery } from './routineService';
 
 type ServiceError = { ok: false; status: number; message: string };
 type ServiceOk<T> = { ok: true; data: T };
 type ServiceResult<T> = ServiceOk<T> | ServiceError;
 
 async function userOwnsDay(userId: string, dayId: string) {
-  return Routine.exists({ days: dayId, $or: [{ userId }, { couchId: userId }] });
+  const accessQuery = await buildRoutineAccessQuery(userId);
+  return Routine.exists({ days: dayId, ...accessQuery });
 }
 
 export async function updateDayService(userId: string, dayId: string, dayName?: string): Promise<ServiceResult<unknown>> {

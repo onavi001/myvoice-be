@@ -848,10 +848,33 @@ export async function listRoutinesForUser(userId: string) {
     .lean();
 }
 
+/** Owner, assigning coach, or the client's active coach may access the routine. */
+export async function canUserAccessRoutine(
+  userId: string,
+  routine: { userId?: unknown; couchId?: unknown }
+): Promise<boolean> {
+  const ownerId = routine.userId?.toString();
+  if (ownerId === userId) return true;
+  if (routine.couchId?.toString() === userId) return true;
+  if (!ownerId) return false;
+  const client = await User.exists({ _id: ownerId, coachId: userId });
+  return Boolean(client);
+}
+
+export async function buildRoutineAccessQuery(userId: string) {
+  const clientIds = await User.find({ coachId: userId }).distinct('_id');
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const orClauses: Record<string, unknown>[] = [{ userId: userObjectId }, { couchId: userObjectId }];
+  if (clientIds.length > 0) {
+    orClauses.push({ userId: { $in: clientIds } });
+  }
+  return { $or: orClauses };
+}
+
 export async function getRoutineForUser(userId: string, routineId: string) {
   const routine = await populateRoutineById(routineId);
   if (!routine) return { status: 'not_found' as const };
-  if (routine.userId?.toString() !== userId && routine.couchId?.toString() !== userId) {
+  if (!(await canUserAccessRoutine(userId, routine))) {
     return { status: 'forbidden' as const };
   }
   return { status: 'ok' as const, routine };
@@ -860,7 +883,7 @@ export async function getRoutineForUser(userId: string, routineId: string) {
 export async function resetRoutineProgressForUser(userId: string, routineId: string) {
   const routine = await Routine.findById(routineId).populate({ path: 'days', populate: { path: 'exercises' } });
   if (!routine) return { status: 'not_found' as const };
-  if (routine.userId?.toString() !== userId && routine.couchId?.toString() !== userId) {
+  if (!(await canUserAccessRoutine(userId, routine))) {
     return { status: 'forbidden' as const };
   }
   const exerciseIds: string[] = [];

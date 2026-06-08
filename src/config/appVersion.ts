@@ -12,7 +12,7 @@ export const APP_ANDROID_MIN_VERSION = process.env.APP_ANDROID_MIN_VERSION?.trim
 
 /** Última versión publicada en Play Store (semver). Por debajo → aviso de actualización. */
 export const APP_ANDROID_LATEST_VERSION =
-  process.env.APP_ANDROID_LATEST_VERSION?.trim() || "1.1.18";
+  process.env.APP_ANDROID_LATEST_VERSION?.trim() || "1.1.19";
 
 export const APP_ANDROID_MIN_VERSION_CODE = parseVersionCode(
   process.env.APP_ANDROID_MIN_VERSION_CODE,
@@ -21,7 +21,7 @@ export const APP_ANDROID_MIN_VERSION_CODE = parseVersionCode(
 
 export const APP_ANDROID_LATEST_VERSION_CODE = parseVersionCode(
   process.env.APP_ANDROID_LATEST_VERSION_CODE,
-  25
+  26
 );
 
 export const APP_ANDROID_STORE_URL =

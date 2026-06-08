@@ -11,6 +11,7 @@ import {
   normalizeCoachCode,
 } from './coachHelpers';
 import { listProgressService } from './progressService';
+import { createRoutineWithRelations } from './routineService';
 import { runWithOptionalTransaction } from './transactionService';
 
 type ServiceError = { ok: false; status: number; message: string };
@@ -397,35 +398,76 @@ export async function assignClientRoutineService(
   coachId: string,
   clientId: string,
   routineId: string,
+  assignedName: string,
   coachMessage?: string
 ): Promise<ServiceResult<unknown>> {
   const client = await User.findOne({ _id: clientId, coachId }).lean();
   if (!client) return { ok: false, status: 404, message: 'Cliente no encontrado' };
-  const sourceRoutine = await Routine.findById(routineId).lean();
+  const sourceRoutine = await Routine.findById(routineId)
+    .populate({
+      path: 'days',
+      populate: { path: 'exercises' },
+    })
+    .lean();
   if (!sourceRoutine) return { ok: false, status: 404, message: 'Rutina no encontrada' };
   if (sourceRoutine.userId.toString() !== coachId) {
     return { ok: false, status: 403, message: 'Solo puedes asignar rutinas que hayas creado' };
   }
 
   const trimmedMessage = coachMessage?.trim().slice(0, COACH_ASSIGNMENT_MESSAGE_MAX);
-  const routinePayload = {
-    userId: clientId,
-    couchId: coachId,
-    name: sourceRoutine.name,
-    days: sourceRoutine.days,
-    ...(trimmedMessage ? { coachMessage: trimmedMessage } : {}),
+  const routineName = assignedName.trim().slice(0, 80) || sourceRoutine.name;
+  type PopulatedExercise = {
+    name?: string;
+    muscleGroup?: string[];
+    sets?: number;
+    reps?: number;
+    repsUnit?: 'count' | 'seconds';
+    weightUnit?: 'kg' | 'lb';
+    weight?: number;
+    rest?: string;
+    tips?: string[];
+    notes?: string;
+    circuitId?: string;
+  };
+  type PopulatedDay = {
+    dayName: string;
+    musclesWorked?: string[];
+    warmupOptions?: string[];
+    explanation?: string;
+    exercises?: PopulatedExercise[];
   };
 
-  const assignedRoutineId = await runWithOptionalTransaction(
-    async (session) => {
-      const [assignedRoutine] = await Routine.create([routinePayload], { session });
-      return assignedRoutine._id;
-    },
-    async () => {
-      const assignedRoutine = await Routine.create(routinePayload);
-      return assignedRoutine._id;
-    }
-  );
+  const days = (sourceRoutine.days as unknown as PopulatedDay[]).map((day) => ({
+    dayName: day.dayName,
+    musclesWorked: day.musclesWorked || [],
+    warmupOptions: day.warmupOptions || [],
+    explanation: day.explanation || '',
+    exercises: (day.exercises || []).map((exercise) => ({
+      name: exercise.name || 'Ejercicio',
+      muscleGroup: exercise.muscleGroup || [],
+      sets: exercise.sets ?? 3,
+      reps: exercise.reps ?? 10,
+      repsUnit: exercise.repsUnit || 'count',
+      weightUnit: exercise.weightUnit || 'kg',
+      weight: exercise.weight ?? 0,
+      rest: exercise.rest || '60',
+      tips: exercise.tips || [],
+      notes: exercise.notes,
+      circuitId: exercise.circuitId,
+      completed: false,
+    })),
+  }));
+
+  const assignedRoutineId = await createRoutineWithRelations({
+    userId: clientId,
+    couchId: coachId,
+    name: routineName,
+    days,
+  });
+
+  if (trimmedMessage) {
+    await Routine.findByIdAndUpdate(assignedRoutineId, { coachMessage: trimmedMessage });
+  }
 
   const populated = await Routine.findById(assignedRoutineId).populate({
     path: 'days',
